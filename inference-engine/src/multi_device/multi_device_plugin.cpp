@@ -210,9 +210,9 @@ IExecutableNetworkInternal::Ptr MultiDeviceInferencePlugin::LoadNetworkImpl(cons
     std::vector<DeviceInformation> metaDevices;
     auto workMode = fullConfig.find(CONFIG_KEY_INTERNAL(MULTI_WORK_MODE_AS_AUTO));
     bool workModeAuto = workMode != fullConfig.end();
-    auto priorities = fullConfig.find(MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES);
 
-    // not found device priorities for -d AUTO use case
+    // if workMode is null.
+    auto priorities = fullConfig.find(MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES);
     if (priorities == fullConfig.end()) {
         if (workModeAuto) {
             std::string allDevices;
@@ -237,6 +237,11 @@ IExecutableNetworkInternal::Ptr MultiDeviceInferencePlugin::LoadNetworkImpl(cons
     if (workModeAuto) {
         auto targetDevice = SelectDevice(metaDevices, networkPrecision);
         metaDevices = { targetDevice };
+    }
+
+    // if workMode is AUTO
+    if (workModeAuto) {
+        return std::make_shared<MultiDeviceExecutableNetwork>(modelPath, network, fullConfig, this);
     }
 
     DeviceMap<SoExecutableNetworkInternal> executableNetworkPerDevice;
@@ -454,6 +459,27 @@ DeviceInformation MultiDeviceInferencePlugin::SelectDevice(const std::vector<Dev
         IE_THROW() << "Cannot select any device";
     }
     return CPU[0];
+}
+
+std::string MultiDeviceInferencePlugin::GetDeviceList(const std::map<std::string, std::string>& config) const {
+    std::string allDevices;
+
+    auto deviceListConfig = config.find(MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES);
+    if (deviceListConfig == config.end()) {
+        auto deviceList = GetCore()->GetAvailableDevices();
+        for (auto&& device : deviceList) {
+            allDevices += device;
+            allDevices += ((device == deviceList[deviceList.size()-1]) ? "" : ",");
+        }
+    } else {
+        allDevices = deviceListConfig->second;
+    }
+
+    if (allDevices.empty()) {
+        IE_THROW() << "Please, check environment due to no supported devices can be used";
+    }
+
+    return allDevices;
 }
 
 }  // namespace MultiDevicePlugin
