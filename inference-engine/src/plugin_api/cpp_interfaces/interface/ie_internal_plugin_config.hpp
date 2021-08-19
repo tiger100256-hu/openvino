@@ -51,8 +51,7 @@ DECLARE_CONFIG_KEY(FORCE_DISABLE_CACHE);
  * This option should be used with value only:
  * PluginConfigInternalParams::MULTI_MODE_AUTO or PluginConfigInternalParams::MULTI_MODE_LEGACY
  */
-DECLARE_CONFIG_KEY(WORK_MODE);
-DECLARE_CONFIG_VALUE(MULTI_MODE_AUTO);
+DECLARE_CONFIG_KEY(AUTO_MODE);
 
 }  // namespace PluginConfigInternalParams
 

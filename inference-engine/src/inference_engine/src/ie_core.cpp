@@ -68,11 +68,11 @@ Parsed<T> parseDeviceNameIntoConfig(const std::string& deviceName, const std::ma
             config_[InferenceEngine::MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES] =
                 deviceName.substr(std::string("AUTO:").size());
         }
-        config_.insert({CONFIG_KEY_INTERNAL(WORK_MODE), ""});
+        config_.insert({CONFIG_KEY_INTERNAL(AUTO_MODE), ""});
     } else {
         if (deviceName_ == "AUTO") {
             deviceName_ = "MULTI";
-            config_.insert({CONFIG_KEY_INTERNAL(WORK_MODE), ""});
+            config_.insert({CONFIG_KEY_INTERNAL(AUTO_MODE), ""});
         }
         InferenceEngine::DeviceIDParser parser(deviceName_);
         deviceName_ = parser.getDeviceName();

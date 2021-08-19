@@ -58,7 +58,7 @@ namespace {
     }
     std::vector<std::string> supported_configKeys = {
         MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES,
-        CONFIG_KEY_INTERNAL(WORK_MODE)
+        CONFIG_KEY_INTERNAL(AUTO_MODE)
     };
 }  // namespace
 
@@ -207,7 +207,7 @@ IExecutableNetworkInternal::Ptr MultiDeviceInferencePlugin::LoadNetworkImpl(cons
     auto fullConfig = mergeConfigs(_config, config);
 
     // check if it is from AUTO
-    auto workMode = fullConfig.find(CONFIG_KEY_INTERNAL(WORK_MODE));
+    auto workMode = fullConfig.find(CONFIG_KEY_INTERNAL(AUTO_MODE));
     // if workMode is AUTO
     if (workMode != fullConfig.end()) {
         CheckConfig(fullConfig);
