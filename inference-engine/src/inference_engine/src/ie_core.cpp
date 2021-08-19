@@ -72,6 +72,7 @@ Parsed<T> parseDeviceNameIntoConfig(const std::string& deviceName, const std::ma
     } else {
         if (deviceName_.empty()) {
             deviceName_ = "AUTO";
+            config_.insert({CONFIG_KEY_INTERNAL(MULTI_WORK_MODE_AS_AUTO), ""});
         }
         InferenceEngine::DeviceIDParser parser(deviceName_);
         deviceName_ = parser.getDeviceName();

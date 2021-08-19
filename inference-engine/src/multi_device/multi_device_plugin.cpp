@@ -58,7 +58,11 @@ namespace {
     }
     const std::vector<std::string> supported_configKeys = {
         MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES,
+<<<<<<< fc78c52cda83d9777698b9c8f17e92fdbf0d1377
         CONFIG_KEY_INTERNAL(MULTI_WORK_MODE_AS_AUTO)
+=======
+        CONFIG_KEY_INTERNAL(AUTO_MODE)
+>>>>>>> Rename WORK_MODE to AUTO_MODE
     };
 }  // namespace
 
@@ -210,7 +214,6 @@ IExecutableNetworkInternal::Ptr MultiDeviceInferencePlugin::LoadNetworkImpl(cons
     std::vector<DeviceInformation> metaDevices;
     auto workMode = fullConfig.find(CONFIG_KEY_INTERNAL(MULTI_WORK_MODE_AS_AUTO));
     bool workModeAuto = workMode != fullConfig.end();
-
 
     // if workMode is null.
     auto priorities = fullConfig.find(MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES);
