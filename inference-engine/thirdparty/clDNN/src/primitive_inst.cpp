@@ -138,7 +138,9 @@ void primitive_inst::set_arguments() {
                      !_has_valid_input,
                      "Cannot set arguments for primitive " + primitive_id + " with invalid/unset input");
 
-    _impl->set_arguments(*this);
+    if (_impl) {
+        _impl->set_arguments(*this);
+    }
 }
 
 void primitive_inst::build_deps() {
