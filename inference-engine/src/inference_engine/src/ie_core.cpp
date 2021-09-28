@@ -11,6 +11,7 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <ie_performance_hints.hpp>
 
 #include "cnn_network_ngraph_impl.hpp"
 #include "compilation_context.hpp"
@@ -1043,11 +1044,18 @@ ExecutableNetwork Core::LoadNetwork(const CNNNetwork& network,
                                     const std::string& deviceNameOrig,
                                     const std::map<std::string, std::string>& config) {
     auto deviceName = deviceNameOrig;
-    if (deviceNameOrig == "GPU") {
+    const auto& mode = config.find(PluginConfigParams::KEY_PERFORMANCE_HINT);
+    if (mode != config.end() && mode->second ==CONFIG_VALUE(THROUGHPUT) && deviceNameOrig == "GPU") {
         std::map<std::string, Parameter> options;
         options["MODEL_ADDRESS"] = &network;
         auto optimalBatchSize =
             _impl->GetCPPPluginByName(deviceNameOrig).get_metric(METRIC_KEY(OPTIMAL_BATCH), options).as<unsigned int>();
+        const auto &reqs = config.find(PluginConfigParams::KEY_PERFORMANCE_HINT_NUM_REQUESTS);
+        if (reqs != config.end()) {
+            auto r = (uint)PerfHintsConfig::CheckPerformanceHintRequestValue(reqs->second);
+            std::cout << "!!!!!!!!!!!!!!!Detected reqs_limitation: " << r << std::endl;
+            optimalBatchSize = std::min(r, optimalBatchSize);
+        }
         auto function = network.getFunction();
         bool bDetectionOutput = false;
         for (auto&& node : function->get_ops()) {
