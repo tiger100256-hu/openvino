@@ -204,7 +204,10 @@ MultiDeviceExecutableNetwork::MultiDeviceExecutableNetwork(const std::string&   
         _workerRequests[p.deviceName];
         _inferPipelineTasksDeviceSpecific[p.deviceName] = NULL;
         const auto device = p.deviceName;
-        const auto deviceConfig = p.config;
+        auto deviceConfig = p.config;
+        if (device == "GPU") {
+           deviceConfig["SET_AUTO_BATCH"] = "YES";
+        }
         // will not wait for loading accelerator network,
         // so some parameters need to be transferred by value.
        _executor->run([&, modelPath, network, device, deviceConfig]() {

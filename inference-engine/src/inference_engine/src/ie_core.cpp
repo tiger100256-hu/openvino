@@ -38,6 +38,7 @@
 #include "xml_parse_utils.h"
 
 using namespace InferenceEngine::PluginConfigParams;
+using namespace InferenceEngine;
 using namespace std::placeholders;
 
 namespace ov {
@@ -476,11 +477,77 @@ public:
     }
 
     ie::SoExecutableNetworkInternal LoadNetwork(const ie::CNNNetwork& network,
-                                                const std::string& deviceName,
+                                                const std::string& deviceNameOrig,
                                                 const std::map<std::string, std::string>& config) override {
         OV_ITT_SCOPE(FIRST_INFERENCE, ie::itt::domains::IE_LT, "Core::LoadNetwork::CNN");
-        bool forceDisableCache = config.count(CONFIG_KEY_INTERNAL(FORCE_DISABLE_CACHE)) > 0;
-        auto parsed = parseDeviceNameIntoConfig(deviceName, config);
+        std::string deviceName = deviceNameOrig;
+        std::map<std::string, std::string> newConfig = config;
+        std::cout << "===========================load:" << deviceNameOrig << std::endl;
+
+        auto mode = newConfig.find(KEY_PERFORMANCE_HINT);
+        std::cout << "===========================load1:" << deviceNameOrig << std::endl;
+
+        auto batch_mode = newConfig.find("SET_AUTO_BATCH");
+        std::cout << "===========================load2:" << deviceNameOrig << std::endl;
+
+        if (mode != newConfig.end() && mode->second ==CONFIG_VALUE(THROUGHPUT)
+                && deviceNameOrig == "GPU" && batch_mode != newConfig.end()
+                && batch_mode->second == "YES"
+                ) {
+            std::cout << "=========================== GPU BUTO BATCH " <<  std::endl;
+            std::map<std::string, ie::Parameter> options;
+            options["MODEL_ADDRESS"] = &network;
+            auto optimalBatchSize = GetCPPPluginByName(deviceNameOrig).get_metric(METRIC_KEY(OPTIMAL_BATCH), options).as<unsigned int>();
+            const auto &reqs = config.find(KEY_PERFORMANCE_HINT_NUM_REQUESTS);
+            if (reqs != config.end()) {
+                auto r = (uint)PerfHintsConfig::CheckPerformanceHintRequestValue(reqs->second);
+                std::cout << "!!!!!!!!!!!!!!!Detected reqs_limitation: " << r << std::endl;
+                optimalBatchSize = std::min(r, optimalBatchSize);
+            }
+            auto function = network.getFunction();
+            bool bDetectionOutput = false;
+            for (auto&& node : function->get_ops()) {
+                auto isDetectionOutputParent = [](decltype(node)& nd) {
+                    for (size_t n = 0; n < nd->get_input_size(); n++) {
+                        if (!std::strcmp("DetectionOutput", nd->get_input_node_ptr(n)->get_type_info().name))
+                            return true;
+                    }
+                    return false;
+                };
+
+                if (!std::strcmp("DetectionOutput", node->get_type_info().name) ||
+                        (!std::strcmp("Result", node->get_type_info().name) && isDetectionOutputParent(node))) {
+                    node->get_rt_info()["affinity"] = std::make_shared<ngraph::VariantWrapper<std::string>>(deviceNameOrig);
+                    std::cout << "!!! AFF !!! type: " << node->get_type_info().name
+                        << ", name: " << node->get_friendly_name() << std::endl;
+                    bDetectionOutput = true;
+                } else {
+                    node->get_rt_info()["affinity"] = std::make_shared<ngraph::VariantWrapper<std::string>>("BATCH");
+                }
+            }
+            if (optimalBatchSize > 1) {
+                if (bDetectionOutput) {
+                    deviceName = "HETERO:BATCH," + deviceNameOrig;
+                    std::cout << "HETERO code path!!!!" << std::endl;
+                    // config["AUTO_BATCH"] = deviceNameOrig+"("+ std::to_string(optimalBatchSize)+ ")";
+                    SetConfigForPlugins({{"AUTO_BATCH", deviceNameOrig + "(" + std::to_string(optimalBatchSize) + ")"}}, "BATCH");
+                } else {
+                    std::cout << "===========================  BATCH code path " <<  std::endl;
+                    std::string deviceBatch = "BATCH:" + deviceNameOrig + "(" + std::to_string(optimalBatchSize) + ")";
+                    deviceName = deviceBatch;
+                }
+            }
+            newConfig.erase(batch_mode);
+        }
+        std::cout << "===========================load3:" << deviceNameOrig << std::endl;
+        auto it = newConfig.find("SET_AUTO_BATCH");
+        if (it != newConfig.end()){
+            std::cout << "===========================why find? value:"<< it->second << std::endl;
+            newConfig.erase(it);
+        }
+        std::cout << "1234===========================load:" << deviceNameOrig << std::endl;
+        bool forceDisableCache = newConfig.count(CONFIG_KEY_INTERNAL(FORCE_DISABLE_CACHE)) > 0;
+        auto parsed = parseDeviceNameIntoConfig(deviceName, newConfig);
         if (forceDisableCache) {
             // remove this config key from parsed as plugins can throw unsupported exception
             parsed._config.erase(CONFIG_KEY_INTERNAL(FORCE_DISABLE_CACHE));
@@ -1041,55 +1108,14 @@ CNNNetwork Core::ReadNetwork(const std::string& model, const Blob::CPtr& weights
 }
 
 ExecutableNetwork Core::LoadNetwork(const CNNNetwork& network,
-                                    const std::string& deviceNameOrig,
+                                    const std::string& deviceName,
                                     const std::map<std::string, std::string>& config) {
-    auto deviceName = deviceNameOrig;
-    const auto& mode = config.find(PluginConfigParams::KEY_PERFORMANCE_HINT);
-    if (mode != config.end() && mode->second ==CONFIG_VALUE(THROUGHPUT) && deviceNameOrig == "GPU") {
-        std::map<std::string, Parameter> options;
-        options["MODEL_ADDRESS"] = &network;
-        auto optimalBatchSize =
-            _impl->GetCPPPluginByName(deviceNameOrig).get_metric(METRIC_KEY(OPTIMAL_BATCH), options).as<unsigned int>();
-        const auto &reqs = config.find(PluginConfigParams::KEY_PERFORMANCE_HINT_NUM_REQUESTS);
-        if (reqs != config.end()) {
-            auto r = (uint)PerfHintsConfig::CheckPerformanceHintRequestValue(reqs->second);
-            std::cout << "!!!!!!!!!!!!!!!Detected reqs_limitation: " << r << std::endl;
-            optimalBatchSize = std::min(r, optimalBatchSize);
-        }
-        auto function = network.getFunction();
-        bool bDetectionOutput = false;
-        for (auto&& node : function->get_ops()) {
-            auto isDetectionOutputParent = [](decltype(node)& nd) {
-                for (size_t n = 0; n < nd->get_input_size(); n++) {
-                    if (!std::strcmp("DetectionOutput", nd->get_input_node_ptr(n)->get_type_info().name))
-                        return true;
-                }
-                return false;
-            };
-
-            if (!std::strcmp("DetectionOutput", node->get_type_info().name) ||
-                (!std::strcmp("Result", node->get_type_info().name) && isDetectionOutputParent(node))) {
-                node->get_rt_info()["affinity"] = std::make_shared<ngraph::VariantWrapper<std::string>>(deviceNameOrig);
-                std::cout << "!!! AFF !!! type: " << node->get_type_info().name
-                          << ", name: " << node->get_friendly_name() << std::endl;
-                bDetectionOutput = true;
-            } else {
-                node->get_rt_info()["affinity"] = std::make_shared<ngraph::VariantWrapper<std::string>>("BATCH");
-            }
-        }
-        if (optimalBatchSize > 1) {
-            if (bDetectionOutput) {
-                deviceName = "HETERO:BATCH," + deviceNameOrig;
-                std::cout << "HETERO code path!!!!" << std::endl;
-                // config["AUTO_BATCH"] = deviceNameOrig+"("+ std::to_string(optimalBatchSize)+ ")";
-                SetConfig({{"AUTO_BATCH", deviceNameOrig + "(" + std::to_string(optimalBatchSize) + ")"}}, "BATCH");
-            } else {
-                std::string deviceBatch = "BATCH:" + deviceNameOrig + "(" + std::to_string(optimalBatchSize) + ")";
-                deviceName = deviceBatch;
-            }
-        }
+    const auto& mode = config.find(KEY_PERFORMANCE_HINT);
+    std::map<std::string, std::string> newConfig = config;
+    if (mode != config.end() && mode->second ==CONFIG_VALUE(THROUGHPUT) && deviceName == "GPU") {
+        newConfig["SET_AUTO_BATCH"] = "YES";
     }
-    auto exec = _impl->LoadNetwork(network, deviceName, config);
+    auto exec = _impl->LoadNetwork(network, deviceName, newConfig);
     return {exec, exec};
 }
 
