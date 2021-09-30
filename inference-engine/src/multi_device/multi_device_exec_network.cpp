@@ -198,6 +198,7 @@ MultiDeviceExecutableNetwork::MultiDeviceExecutableNetwork(const std::string&   
             1 /*single thread per stream*/,
             IStreamsExecutor::ThreadBindingType::NONE});
 
+    std::vector<Task> loads;
     for (auto& p : needLoadDevices) {
         // initialize these containers firstly to avoid insert operation in threads
         _idleWorkerRequests[p.deviceName];
@@ -210,7 +211,7 @@ MultiDeviceExecutableNetwork::MultiDeviceExecutableNetwork(const std::string&   
         }
         // will not wait for loading accelerator network,
         // so some parameters need to be transferred by value.
-       _executor->run([&, modelPath, network, device, deviceConfig]() {
+       loads.push_back([&, modelPath, network, device, deviceConfig]() {
             SoExecutableNetworkInternal executableNetwork;
             if (!modelPath.empty()) {
                 executableNetwork = _core->LoadNetwork(modelPath, device, deviceConfig);
@@ -223,11 +224,16 @@ MultiDeviceExecutableNetwork::MultiDeviceExecutableNetwork(const std::string&   
             if (device.find("CPU") == std::string::npos) {
                 _alreadyActualNetwork = true;
                 _acceleratorPromise.set_value(executableNetwork);
+                std::cout << "!!!!!!!gput is ready"  << std::endl;
             } else {
                 _cpuPromise.set_value(executableNetwork);
             }
         });
     }
+    for (auto& task : loads) {
+         _executor->run(task);
+    }
+
 
     WaitFirstNetworkReady();
 }
