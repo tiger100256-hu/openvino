@@ -64,6 +64,7 @@
    :hidden:
 
    openvino_docs_ovms
+   ovtf_integration
    ovsa_get_started
 
 .. toctree::
