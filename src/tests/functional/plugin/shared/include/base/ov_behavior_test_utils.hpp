@@ -75,7 +75,7 @@ inline ov::Core createCoreWithTemplate() {
     ov::test::utils::PluginCache::get().reset();
     ov::Core core;
 #ifndef OPENVINO_STATIC_LIBRARY
-    std::string pluginName = "ov_template_plugin";
+    std::string pluginName = "openvino_template_plugin";
     pluginName += IE_BUILD_POSTFIX;
     core.register_plugin(pluginName, CommonTestUtils::DEVICE_TEMPLATE);
 #endif // !OPENVINO_STATIC_LIBRARY
@@ -126,6 +126,26 @@ public:
         deviceName = GetParam();
     }
 };
+
+using PriorityParams = std::tuple<
+        std::string,            // Device name
+        ov::AnyMap              // device priority Configuration key
+>;
+class OVClassExecutableNetworkGetMetricTest_Priority : public ::testing::Test, public ::testing::WithParamInterface<PriorityParams> {
+protected:
+    std::string deviceName;
+    ov::AnyMap configuration;
+    std::shared_ptr<ngraph::Function> simpleNetwork;
+
+public:
+    void SetUp() override {
+        SKIP_IF_CURRENT_TEST_IS_DISABLED();
+        std::tie(deviceName, configuration) = GetParam();
+        simpleNetwork = ngraph::builder::subgraph::makeSingleConv();
+    }
+};
+using OVClassExecutableNetworkGetMetricTest_DEVICE_PRIORITY = OVClassExecutableNetworkGetMetricTest_Priority;
+using OVClassExecutableNetworkGetMetricTest_MODEL_PRIORITY = OVClassExecutableNetworkGetMetricTest_Priority;
 
 #define SKIP_IF_NOT_IMPLEMENTED(...)                   \
 {                                                      \
