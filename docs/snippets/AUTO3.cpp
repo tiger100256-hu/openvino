@@ -9,9 +9,9 @@ int main() {
 
 	// Load a network to AUTO with Performance Hints enabled:
 	// To use the “throughput” mode:
-	ov::CompiledModel compiled_model = core.compile_model(model, "AUTO:CPU,GPU", {{"PERFORMANCE_HINT", "THROUGHPUT"}});
+	ov::CompiledModel compiled_model = core.compile_model(model, "AUTO:CPU,GPU", {{ov::hint::performance_mode, "THROUGHPUT"}});
 	// or the “latency” mode:
-	ov::CompiledModel compiledModel3 = core.compile_model(model, "AUTO:CPU,GPU", {{"PERFORMANCE_HINT", "LATENCY"}});
+	ov::CompiledModel compiledModel3 = core.compile_model(model, "AUTO:CPU,GPU", {{ov::hint::performance_mode, "LATENCY"}});
 //! [part3]
 	return 0;
 }
