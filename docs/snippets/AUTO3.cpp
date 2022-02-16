@@ -2,9 +2,16 @@
 
 int main() {
 //! [part3]
-    InferenceEngine::Core ie;
-    InferenceEngine::CNNNetwork network = ie.ReadNetwork("sample.xml");
-    InferenceEngine::ExecutableNetwork exeNetwork = ie.LoadNetwork(network, "AUTO:CPU,GPU");
+	ov::Core core;
+
+	// Read a network in IR, PaddlePaddle, or ONNX format:
+	std::shared_ptr<ov::Model> model = core.read_model("sample.xml");
+
+	// Load a network to AUTO with Performance Hints enabled:
+	// To use the “throughput” mode:
+	ov::CompiledModel compiled_model = core.compile_model(model, "AUTO:CPU,GPU", {{"PERFORMANCE_HINT", "THROUGHPUT"}});
+	// or the “latency” mode:
+	ov::CompiledModel compiledModel3 = core.compile_model(model, "AUTO:CPU,GPU", {{"PERFORMANCE_HINT", "LATENCY"}});
 //! [part3]
-return 0;
+	return 0;
 }

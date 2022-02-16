@@ -11,23 +11,9 @@ There are six levels of logs, which can be called explicitly or set via the OPEN
 4. LOG_DEBUG
 5. LOG_TRACE
 
-@sphinxdirective
-.. tab:: C++ API
-
-   .. code-block:: cpp
-
-      ov::runtime::Core core
-      
-      // read a network in IR, PaddlePaddle, or ONNX format
-      std::shared_ptr<ov::Model> model = core.read_model("sample.xml");
-      
-      // load a network to AUTO and set log level to debug
-      ov::runtime::CompiledModel compiled_model = core.compile_model(model, “AUTO”, {{"LOG_LEVEL ", "LOG_DEBUG"}});
-      
-      // or set log level with set_config and load network
-      core.set_config({"LOG_LEVEL", "LOG_DEBUG"}}, "AUTO");
-      ov::runtime::CompiledModel compiled_model = core.compile_model(model, “AUTO”);
+@snippet snippets/AUTO6.cpp part6
 	  
+@sphinxdirective
 .. tab:: Python API
 
    .. code-block:: python
