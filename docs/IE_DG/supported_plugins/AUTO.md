@@ -61,6 +61,11 @@ first-inference latency: **2594.29 ms + 9.21 ms**
 
 first-inference latency: **173.13 ms + 13.20 ms**
 
+@sphinxdirective
+.. note::
+   The realtime performance will be becomming close to best suited device after running for longer time.
+@endsphinxdirective
+
 ## Using the Auto-Device Plugin 
 
 Inference with Auto-Device is configured similarly to other plugins: first you configure devices, then load a network to the Auto-device plugin, and finally, execute inference. 
@@ -69,27 +74,41 @@ Following the OpenVINO naming convention, the Auto-device plugin is assigned the
 
 @sphinxdirective
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
-| Parameter               | Parameter values                              | Description                                               |
+| Property                | Property values                               | Description                                               |
 +=========================+===============================================+===========================================================+
 | <device candidate list> | | AUTO: <device names>                        | | Lists the devices available for selection.              |
-|                         | | comma-separated, no spaces                  | | If not specified, “AUTO” will be used as default        |
-|                         |                                               | | and all devices will be included.                       |
+|                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority from high |
+|                         | |                                             | to low.                                                   |
+|                         | |                                             | | If not specified, “AUTO” will be used as default        |
+|                         | |                                             | | and all devices will be included.                       |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
-| MULTI_DEVICE_PRIORITIES | | device names                                | | Specifies the devices for Auto-Device plugin to select. |
-|                         | | comma-separated, no spaces                  | | This configuration is optional.                         |
+| ov::device:priorities   | | device names                                | | Specifies the devices for Auto-Device plugin to select. |
+|                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority from high |
+|                         | |                                             | to low.                                                   |
+|                         | |                                             | | This configuration is optional.                         |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
-| PERFORMANCE_HINT        | | THROUGHPUT (or TPUT)                        | | Specifies the performance mode preferred                |
+| ov::hint                | | THROUGHPUT                                  | | Specifies the performance mode preferred                |
 |                         | | LATENCY                                     | | by the application.                                     |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
-| MODEL_PRIORITY          | | HIGH                                        | | Important! This parameter is still not fully supported  |
-|                         | | MEDIUM                                      | and caution is advised when using it.                     |
-|                         | | LOW                                         |                                                           | 
+| ov::hint:model_priority | | MODEL_PRIORITY_HIGH                         | | Indicates the priority for a network.                   |
+|                         | | MODEL_PRIORITY_MED                          | |                                                         |
+|                         | | MODEL_PRIORITY_LOW                          | | Important! This property is still not fully supported, |
 |                         |                                               |                                                           |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 @endsphinxdirective
+@sphinxdirective
+.. note::
+   For legacy APIs like LoadNetwork/SetConfig/GetConfig/GetMetric
+   Replace {ov::device:priorities, "GPU,CPU"} with {"MULTI_DEVICE_PRIORITIES", "GPU,CPU"}, replace {ov::hint:model_priority, "LOW"} with {"MODEL_PRIORITY", "LOW"}
+
+   InferenceEngine::MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES is defined as same string "MULTI_DEVICE_PRIORITIES"
+   CommonTestUtils::DEVICE_GPU + std::string(",") + CommonTestUtils::DEVICE_CPU equals to "GPU,CPU"
+   InferenceEngine::PluginConfigParams::KEY_MODEL_PRIORITY is defined as same string "MODEL_PRIORITY"
+   InferenceEngine::PluginConfigParams::MODEL_PRIORITY_LOW is defined as same string "LOW"
+@endsphinxdirective
 
 ### Device candidate list
-The device candidate list allows users to limit the choice of devices available to the AUTO plugin. If not specified, the plugin assumes all the devices present in the system can be used. Note, that Inference Engine lets you use “GPU” as an alias for “GPU.0” in function calls. 
+The device candidate list allows users to customize the priority and limit the choice of devices available to the AUTO plugin. If not specified, the plugin assumes all the devices present in the system can be used. Note, that Inference Engine lets you use “GPU” as an alias for “GPU.0” in function calls. 
 The following commands are accepted by the API: 
 
 @snippet snippets/AUTO0.cpp part0
@@ -173,14 +192,14 @@ For Python API
 For more details, read the Introduction to [Introduction to Inference Engine Device Query API](../../../docs/IE_DG/InferenceEngine_QueryAPI.md) or see how it works in our samples.
 
 ### Performance Hints
-The PERFORMANCE_HINT parameter enables you to specify a performance mode for the plugin to be more efficient for particular use cases.
+The ov::hint property enables you to specify a performance mode for the plugin to be more efficient for particular use cases.
 
-#### THROUGHPUT/TPUT
+#### ov::hint::PerformanceMode::THROUGHPUT
 This mode prioritizes high throughput, balancing between latency and power. It is best suited for tasks involving multiple jobs, like inference of video feeds or large numbers of images.
 
-#### LATENCY
+#### ov::hint::PerformanceMode::LATENCY
 This mode prioritizes low latency, providing short response time for each inference job. It performs best for tasks where inference is required for a single input image, like a medical analysis of an ultrasound scan image. It also fits the tasks of real-time or nearly real-time applications, such as an industrial robot's response to actions in its environment or obstacle avoidance for autonomous vehicles.
-Note that currently the PERFORMANCE_HINT parameter is not supported by VPUX and Myriad devices.
+Note that currently the ov::hint property is not supported by VPUX and Myriad devices.
 
 To enable Performance Hints for your application, use the following code: 
 
@@ -206,8 +225,8 @@ To enable Performance Hints for your application, use the following code:
       compiled_model = core.compile_model(model=model, device_name="AUTO:CPU,GPU", config={"PERFORMANCE_HINT":"LATENCY"})
 @endsphinxdirective
 
-### MODEL_PRIORITY
-The parameter enables you to control the priorities of networks in Auto-Device Plugin. A high-priority network will be loaded to a supported high-priority device. A lower-priority network will not be loaded to a device that is occupied by a higher-priority network.
+### ov::hint::model_priority
+The property enables you to control the priorities of networks in Auto-Device Plugin. A high-priority network will be loaded to a supported high-priority device. A lower-priority network will not be loaded to a device that is occupied by a higher-priority network.
 
 @snippet snippets/AUTO4.cpp part4
 

@@ -1,15 +1,15 @@
 # Debugging Auto-Device Plugin {#openvino_docs_IE_DG_supported_plugins_AUTO_debugging}
 
 ## Debug log
-In case of execution problems, just like all other plugins, Auto-Device provides the user with information on exceptions and error values. If the returned data is not enough for debugging purposes, more information may be acquired by means of LOG_LEVEL.
+In case of execution problems, just like all other plugins, Auto-Device provides the user with information on exceptions and error values. If the returned data is not enough for debugging purposes, more information may be acquired by means of ov::log::Level.
 
-There are six levels of logs, which can be called explicitly or set via the OPENVINO_LOG_LEVEL  environment variable (can be overwritten by compile_model or set_config):  
-0. LOG_NONE 
-1. LOG_ERROR 
-2. LOG_WARNING
-3. LOG_INFO
-4. LOG_DEBUG
-5. LOG_TRACE
+There are six levels of logs, which can be called explicitly or set via the OPENVINO_LOG_LEVEL  environment variable (can be overwritten by compile_model or set_property):
+0. ov::log::Level::NO
+1. ov::log::Level::ERR
+2. ov::log::Level::WARING
+3. ov::log::Level::INFO
+4. ov::log::Level::DEBUG
+5. ov::log::Level::TRACE
 
 @snippet snippets/AUTO6.cpp part6
 	  
@@ -45,7 +45,7 @@ There are six levels of logs, which can be called explicitly or set via the OPEN
       set OPENVINO_LOG_LEVEL=0
 @endsphinxdirective
 
-The parameter returns information in the following format: 
+The property returns information in the following format:
 
 @sphinxdirective
 .. code-block:: sh
@@ -63,7 +63,7 @@ in which the “LOG_LEVEL” is represented by the first letter of its name (ERR
    [17:09:36.6809]ERROR[executable_network.cpp:384] [AUTOPLUGIN] load failed, MYRIAD:[ GENERAL_ERROR ]
 @endsphinxdirective
 
-For more details on the LOG_LEVEL, please refer to [ie_plugin_config.hpp](https://github.com/openvinotoolkit/openvino/blob/77f6a007/src/inference/include/ie/ie_plugin_config.hpp#L329)
+For more details on the ov::log::level, please refer to [openvino/runtime/properties.hpp](https://github.com/openvinotoolkit/openvino/blob/1621a5a0/src/inference/include/openvino/runtime/properties.hpp#L348)
 
 ## Instrumentation and Tracing Technology
 
