@@ -206,7 +206,7 @@ To enable Performance Hints for your application, use the following code:
       compiled_model = core.compile_model(model=model, device_name="AUTO:CPU,GPU", config={"PERFORMANCE_HINT":"LATENCY"})
 @endsphinxdirective
 
-### MODEL_PRIORIT
+### MODEL_PRIORITY
 The parameter enables you to control the priorities of networks in Auto-Device Plugin. A high-priority network will be loaded to a supported high-priority device. A lower-priority network will not be loaded to a device that is occupied by a higher-priority network.
 
 @snippet snippets/AUTO4.cpp part4
