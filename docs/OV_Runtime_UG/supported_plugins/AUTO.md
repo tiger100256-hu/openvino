@@ -81,7 +81,7 @@ Following the OpenVINO naming convention, the Auto-device plugin is assigned the
 |                         | |                                             | to low.                                                   |
 |                         | |                                             | | If not specified, “AUTO” will be used as default        |
 |                         | |                                             | | and exists device(CPU, GPU, MYRIAD and VPUX)            |
-|                         | |                                             | | will be included.                                              |
+|                         | |                                             | | will be included.                                       |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 | ov::device:priorities   | | device names                                | | Specifies the devices for Auto-Device plugin to select. |
 |                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority from high |
@@ -93,7 +93,7 @@ Following the OpenVINO naming convention, the Auto-device plugin is assigned the
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 | ov::hint:model_priority | | MODEL_PRIORITY_HIGH                         | | Indicates the priority for a network.                   |
 |                         | | MODEL_PRIORITY_MED                          | |                                                         |
-|                         | | MODEL_PRIORITY_LOW                          | | Important! This property is still not fully supported,  |
+|                         | | MODEL_PRIORITY_LOW                          | | Important! This property is still not fully supported   |
 |                         |                                               |                                                           |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 @endsphinxdirective
