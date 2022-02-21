@@ -98,17 +98,26 @@ int tmain(int argc, tchar* argv[]) {
         model = ppp.build();
 
         // -------- Step 5. Loading a model to the device --------
-        ov::CompiledModel compiled_model = core.compile_model(model, device_name);
+        ov::CompiledModel compiled_model = core.compile_model(model, device_name, {{ov::hint::model_priority.name(), "HIGH"}});
+        ov::CompiledModel compiled_model1 = core.compile_model(model, device_name, {{ov::hint::model_priority.name(), "MEDIUM"}});
+        ov::CompiledModel compiled_model2 = core.compile_model(model, device_name, {{ov::hint::model_priority.name(), "LOW"}});
+
 
         // -------- Step 6. Create an infer request --------
         ov::InferRequest infer_request = compiled_model.create_infer_request();
+        ov::InferRequest infer_request1 = compiled_model1.create_infer_request();
+        ov::InferRequest infer_request2 = compiled_model2.create_infer_request();
         // -----------------------------------------------------------------------------------------------------
 
         // -------- Step 7. Prepare input --------
         infer_request.set_input_tensor(input_tensor);
+        infer_request1.set_input_tensor(input_tensor);
+        infer_request2.set_input_tensor(input_tensor);
 
         // -------- Step 8. Do inference synchronously --------
         infer_request.infer();
+        infer_request1.infer();
+        infer_request2.infer();
 
         // -------- Step 9. Process output
         const ov::Tensor& output_tensor = infer_request.get_output_tensor();
