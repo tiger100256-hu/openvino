@@ -18,11 +18,11 @@ int main() {
 
 	// You can also specify the devices to be used by AUTO in its selection process.
 	// The following lines are equivalent:
-	InferenceEngine::ExecutableNetwork exec3 = ie.LoadNetwork(network, "AUTO:CPU,GPU");
-	InferenceEngine::ExecutableNetwork exec4 = ie.LoadNetwork(network, "AUTO", {{"MULTI_DEVICE_PRIORITIES", "CPU,GPU"}});
+	InferenceEngine::ExecutableNetwork exec3 = ie.LoadNetwork(network, "AUTO:GPU,CPU");
+	InferenceEngine::ExecutableNetwork exec4 = ie.LoadNetwork(network, "AUTO", {{"MULTI_DEVICE_PRIORITIES", "GPU,CPU"}});
 
 	// the AUTO plugin is pre-configured (globally) with the explicit option:
-	ie.SetConfig({{"MULTI_DEVICE_PRIORITIES", "CPU,GPU"}}, "AUTO");
+	ie.SetConfig({{"MULTI_DEVICE_PRIORITIES", "GPU,CPU"}}, "AUTO");
 //! [part1]
 	return 0;
 }

@@ -18,11 +18,11 @@ int main() {
 
 	// You can also specify the devices to be used by AUTO in its selection process.
 	// The following lines are equivalent:
-	ov::CompiledModel model3 = core.compile_model(model, "AUTO:CPU,GPU");
-	ov::CompiledModel model4 = core.compile_model(model, "AUTO", {{ov::device::priorities.name(), "CPU,GPU"}});
+	ov::CompiledModel model3 = core.compile_model(model, "AUTO:GPU,CPU");
+	ov::CompiledModel model4 = core.compile_model(model, "AUTO", {{ov::device::priorities.name(), "GPU,CPU"}});
 
 	// the AUTO plugin is pre-configured (globally) with the explicit option:
-	core.set_property("AUTO", ov::device::priorities("CPU,GPU"));
+	core.set_property("AUTO", ov::device::priorities("GPU,CPU"));
 //! [part0]
 	return 0;
 }
