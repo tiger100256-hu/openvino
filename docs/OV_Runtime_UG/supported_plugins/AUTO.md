@@ -63,7 +63,7 @@ first-inference latency: **173.13 ms + 13.20 ms**
 
 @sphinxdirective
 .. note::
-   The realtime performance will be closer to the best suited device the longer the process runs.
+   The realtime performance will be becomming close to best suited device after running for longer time.
 @endsphinxdirective
 
 ## Using the Auto-Device Plugin 
@@ -77,23 +77,35 @@ Following the OpenVINO naming convention, the Auto-device plugin is assigned the
 | Property                | Property values                               | Description                                               |
 +=========================+===============================================+===========================================================+
 | <device candidate list> | | AUTO: <device names>                        | | Lists the devices available for selection.              |
-|                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority           |
-|                         | |                                             | | from high to low.                                       |
+|                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority from high |
+|                         | |                                             | to low.                                                   |
 |                         | |                                             | | If not specified, “AUTO” will be used as default        |
-|                         | |                                             | | and all devices will be included.                       |
+|                         | |                                             | | and exists device(CPU, GPU, MYRIAD and VPUX)            |
+|                         | |                                             | | will be included.                                              |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 | ov::device:priorities   | | device names                                | | Specifies the devices for Auto-Device plugin to select. |
-|                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority           |
-|                         | |                                             | | from high to low.                                       |
+|                         | | comma-separated, no spaces                  | | The device sequence will be taken as priority from high |
+|                         | |                                             | to low.                                                   |
 |                         | |                                             | | This configuration is optional.                         |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 | ov::hint                | | THROUGHPUT                                  | | Specifies the performance mode preferred                |
 |                         | | LATENCY                                     | | by the application.                                     |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
 | ov::hint:model_priority | | MODEL_PRIORITY_HIGH                         | | Indicates the priority for a network.                   |
-|                         | | MODEL_PRIORITY_MED                          | | Importantly!                                            |
-|                         | | MODEL_PRIORITY_LOW                          | | This property is still not fully supported              |
+|                         | | MODEL_PRIORITY_MED                          | |                                                         |
+|                         | | MODEL_PRIORITY_LOW                          | | Important! This property is still not fully supported,  |
+|                         |                                               |                                                           |
 +-------------------------+-----------------------------------------------+-----------------------------------------------------------+
+@endsphinxdirective
+@sphinxdirective
+.. note::
+   For legacy APIs like LoadNetwork/SetConfig/GetConfig/GetMetric
+   Replace {ov::device:priorities, "GPU,CPU"} with {"MULTI_DEVICE_PRIORITIES", "GPU,CPU"}, replace {ov::hint:model_priority, "LOW"} with {"MODEL_PRIORITY", "LOW"}
+
+   InferenceEngine::MultiDeviceConfigParams::KEY_MULTI_DEVICE_PRIORITIES is defined as same string "MULTI_DEVICE_PRIORITIES"
+   CommonTestUtils::DEVICE_GPU + std::string(",") + CommonTestUtils::DEVICE_CPU equals to "GPU,CPU"
+   InferenceEngine::PluginConfigParams::KEY_MODEL_PRIORITY is defined as same string "MODEL_PRIORITY"
+   InferenceEngine::PluginConfigParams::MODEL_PRIORITY_LOW is defined as same string "LOW"
 @endsphinxdirective
 
 @sphinxdirective
@@ -110,58 +122,14 @@ Following the OpenVINO naming convention, the Auto-device plugin is assigned the
 @endsphinxdirective
 
 ### Device candidate list
-The device candidate list allows users to customize the priority and limit the choice of devices available to the AUTO plugin. If not specified, the plugin assumes all the devices present in the system can be used. Note, that Inference Engine lets you use “GPU” as an alias for “GPU.0” in function calls. 
+The device candidate list allows users to customize the priority and limit the choice of devices available to the AUTO plugin. If not specified, the plugin assumes devices(CPU, GPU, MYRIAD, VPUX) present in the system can be used. Note, that Inference Engine lets you use “GPU” as an alias for all GPU related devices like "GPU.0" and "GPU.1" in system in function calls. 
 The following commands are accepted by the API: 
 
+@snippet snippets/AUTO0.cpp part0
+
+@snippet snippets/AUTO1.cpp part1
+	  
 @sphinxdirective
-.. tab:: C++ API
-
-   .. code-block:: cpp
-
-      /*** With Inference Engine 2.0 API ***/
-      ov::Core core; 
-
-      // Read a network in IR, PaddlePaddle, or ONNX format:
-      std::shared_ptr<ov::Model> model = core.read_model("sample.xml");    
-
-      // Load a network to AUTO using the default list of device candidates.
-      // The following lines are equivalent:
-      ov::CompiledModel model0 = core.compile_model(model);
-      ov::CompiledModel model1 = core.compile_model(model, "AUTO");
-      ov::CompiledModel model2 = core.compile_model(model, "AUTO", {});      
-
-      // You can also specify the devices to be used by AUTO in its selection process.
-      // The following lines are equivalent:
-      ov::CompiledModel model3 = core.compile_model(model, "AUTO:CPU,GPU");
-      ov::CompiledModel model4 = core.compile_model(model, "AUTO", {{ov::device::priorities.name(), "CPU,GPU"}});    
-
-      // the AUTO plugin is pre-configured (globally) with the explicit option:
-      core.set_property("AUTO", {{ov::device::priorities.name(), "CPU,GPU"}});       
-
-.. tab:: C++ legacy API
-
-   .. code-block:: cpp
-
-      /*** With API Prior to 2022.1 Release ***/
-      InferenceEngine::Core ie;      
-
-      // Read a network in IR, PaddlePaddle, or ONNX format:
-      InferenceEngine::CNNNetwork network = ie.ReadNetwork("sample.xml");  
-
-      // Load a network to AUTO using the default list of device candidates.
-      // The following lines are equivalent:
-      InferenceEngine::ExecutableNetwork exec0 = ie.LoadNetwork(network);
-      InferenceEngine::ExecutableNetwork exec1 = ie.LoadNetwork(network, "AUTO");
-      InferenceEngine::ExecutableNetwork exec2 = ie.LoadNetwork(network, "AUTO", {});      
-      
-      // You can also specify the devices to be used by AUTO in its selection process.
-      // The following lines are equivalent:
-      InferenceEngine::ExecutableNetwork exec3 = ie.LoadNetwork(network, "AUTO:CPU,GPU");
-      InferenceEngine::ExecutableNetwork exec4 = ie.LoadNetwork(network, "AUTO", {{"MULTI_DEVICE_PRIORITIES", "CPU,GPU"}});      
-      
-      // the AUTO plugin is pre-configured (globally) with the explicit option:
-      ie.SetConfig({{"MULTI_DEVICE_PRIORITIES", "CPU,GPU"}}, "AUTO");
-
 .. tab:: Python API
 
    .. code-block:: python
@@ -237,30 +205,17 @@ For more details, read the Introduction to [Introduction to Inference Engine Dev
 The ov::hint property enables you to specify a performance mode for the plugin to be more efficient for particular use cases.
 
 #### ov::hint::PerformanceMode::THROUGHPUT
-This mode prioritizes high throughput, balancing between latency and power. It is best suited for tasks involving multiple jobs, like inference of video feeds or large numbers of images.
+This mode prioritizes high throughput.
 
 #### ov::hint::PerformanceMode::LATENCY
 This mode prioritizes low latency, providing short response time for each inference job. It performs best for tasks where inference is required for a single input image, like a medical analysis of an ultrasound scan image. It also fits the tasks of real-time or nearly real-time applications, such as an industrial robot's response to actions in its environment or obstacle avoidance for autonomous vehicles.
 Note that currently the ov::hint property is not supported by VPUX and Myriad devices.
 
 To enable Performance Hints for your application, use the following code: 
+
+@snippet snippets/AUTO3.cpp part3
+
 @sphinxdirective
-.. tab:: C++ API
-
-   .. code-block:: cpp
-
-      ov::Core core;
-
-      // Read a network in IR, PaddlePaddle, or ONNX format:
-      std::shared_ptr<ov::Model> model = core.read_model("sample.xml");      
-      
-      // Load a network to AUTO with Performance Hints enabled:
-      // To use the “throughput” mode:
-      ov::CompiledModel compiled_model = core.compile_model(model, "AUTO:CPU,GPU", {{ov::hint::performance_mode.name(), "THROUGHPUT"}});
-      
-      // or the “latency” mode:
-      ov::CompiledModel compiledModel1 = core.compile_model(model, "AUTO:CPU,GPU", {{ov::hint::performance_mode.name(), "LATENCY"}});
- 
 .. tab:: Python API
 
    .. code-block:: python
@@ -283,33 +238,9 @@ To enable Performance Hints for your application, use the following code:
 ### ov::hint::model_priority
 The property enables you to control the priorities of networks in Auto-Device Plugin. A high-priority network will be loaded to a supported high-priority device. A lower-priority network will not be loaded to a device that is occupied by a higher-priority network.
 
+@snippet snippets/AUTO4.cpp part4
+
 @sphinxdirective
-.. tab:: C++ API
-
-   .. code-block:: cpp
-
-      // Example 1
-      // Compile and load networks:
-      ov::CompiledModel compiled_model0 = core.compile_model(model, "AUTO:CPU,GPU,MYRIAD", {{ov::hint::model_priority.name(), "HIGH"}});
-      ov::CompiledModel compiled_model1 = core.compile_model(model, "AUTO:CPU,GPU,MYRIAD", {{ov::hint::model_priority.name(), "MEDIUM"}});
-      ov::CompiledModel compiled_model2 = core.compile_model(model, "AUTO:CPU,GPU,MYRIAD", {{ov::hint::model_priority.name(), "LOW"}});
-      
-      /************
-        Assume that all the devices (CPU, GPU, and MYRIAD) can support all the networks.
-        	  Result: compiled_model0 will use GPU, compiled_model1 will use MYRIAD, compiled_model2 will use CPU.
-       ************/
-      
-      // Example 2
-      // Compile and load networks:
-      ov::CompiledModel compiled_model3 = core.compile_model(model, "AUTO:CPU,GPU,MYRIAD", {{ov::hint::model_priority.name(), "LOW"}});
-      ov::CompiledModel compiled_model4 = core.compile_model(model, "AUTO:CPU,GPU,MYRIAD", {{ov::hint::model_priority.name(), "MEDIUM"}});
-      ov::CompiledModel compiled_model5 = core.compile_model(model, "AUTO:CPU,GPU,MYRIAD", {{ov::hint::model_priority.name(), "LOW"}});
-      
-      /************
-        Assume that all the devices (CPU, GPU, and MYRIAD) can support all the networks.
-        Result: compiled_model3 will use GPU, compiled_model4 will use GPU, compiled_model5 will use MYRIAD.
-       ************/
-      
 .. tab:: Python API
 
    .. code-block:: python
@@ -336,24 +267,9 @@ The property enables you to control the priorities of networks in Auto-Device Pl
 ## Configuring Individual Devices and Creating the Auto-Device on Top
 Although the methods described above are currently the preferred way to execute inference with the Auto-Device plugin, the following steps can be also used as an alternative. It is currently available as a legacy feature and used if the device candidate list includes VPUX or Myriad (devices uncapable of utilizing the Performance Hints option). 
 
+@snippet snippets/AUTO5.cpp part5
+
 @sphinxdirective
-.. tab:: C++ API
-
-   .. code-block:: cpp
-
-      ovCore core;
-
-      // Read a network in IR, PaddlePaddle, or ONNX format
-      stdshared_ptrovModel model = core.read_model(sample.xml);
-
-      // Configure the VPUX and the Myriad devices separately and load the network to Auto-Device plugin
-      set VPU config
-      core.set_property(VPUX, {});
-
-      // set MYRIAD config
-      core.set_property(MYRIAD, {});
-      ovCompiledModel compiled_model = core.compile_model(model, AUTO);
-
 .. tab:: Python API
 
    .. code-block:: python
