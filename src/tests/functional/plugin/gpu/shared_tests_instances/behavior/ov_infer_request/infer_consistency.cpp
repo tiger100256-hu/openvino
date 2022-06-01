@@ -37,6 +37,13 @@ std::vector<Configs> AutoConfigs = {
     },
     {
         {
+            CommonTestUtils::DEVICE_AUTO + std::string(":") + CommonTestUtils::DEVICE_GPU,
+            {ov::hint::performance_mode(ov::hint::PerformanceMode::CUMULATIVE_THROUGHPUT)}
+        },
+        {CommonTestUtils::DEVICE_GPU, {}}
+    },
+    {
+        {
             CommonTestUtils::DEVICE_AUTO + std::string(":") + CommonTestUtils::DEVICE_GPU +
             "," + CommonTestUtils::DEVICE_CPU,
             {ov::hint::performance_mode(ov::hint::PerformanceMode::LATENCY)}
@@ -50,6 +57,22 @@ std::vector<Configs> AutoConfigs = {
             {ov::hint::performance_mode(ov::hint::PerformanceMode::THROUGHPUT)}
         },
         {CommonTestUtils::DEVICE_GPU, {}},  {CommonTestUtils::DEVICE_CPU, {}}
+    },
+    {
+        {
+            CommonTestUtils::DEVICE_AUTO + std::string(":") + CommonTestUtils::DEVICE_GPU +
+            "," + CommonTestUtils::DEVICE_CPU,
+            {ov::hint::performance_mode(ov::hint::PerformanceMode::CUMULATIVE_THROUGHPUT)}
+        },
+        {CommonTestUtils::DEVICE_GPU, {}},  {CommonTestUtils::DEVICE_CPU, {}}
+    },
+    {
+        {
+            CommonTestUtils::DEVICE_AUTO + std::string(":") + CommonTestUtils::DEVICE_CPU +
+            "," + CommonTestUtils::DEVICE_GPU,
+            {ov::hint::performance_mode(ov::hint::PerformanceMode::CUMULATIVE_THROUGHPUT)}
+        },
+        {CommonTestUtils::DEVICE_CPU, {}},  {CommonTestUtils::DEVICE_GPU, {}}
     }
 };
 
