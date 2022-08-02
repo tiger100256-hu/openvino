@@ -111,16 +111,16 @@ FullyConnected::FullyConnected(const std::shared_ptr<ngraph::Node>& op, const dn
 
         withBiases = inputShapes.size() == 3;
 
-		if (auto weights = std::dynamic_pointer_cast<const ngraph::opset1::Constant>(op->get_input_node_shared_ptr(WEIGHTS_ID))) {
-			size_t zerosCounts = 0;
-			auto weightsData = weights->get_vector<int8_t>();
-			for (int i = 0; i < weightsData.size(); i++) {
-				if (weightsData[i] == 0) {
-					zerosCounts++;
-				}
-			}
-			std::cout << getName() << " | sparse rate = " << static_cast<float>(zerosCounts) * 100 / static_cast<float>(weightsData.size()) << "%" << std::endl;
-		}
+        if (auto weights = std::dynamic_pointer_cast<const ngraph::opset1::Constant>(op->get_input_node_shared_ptr(WEIGHTS_ID))) {
+            size_t zerosCounts = 0;
+            auto weightsData = weights->get_vector<int8_t>();
+            for (int i = 0; i < weightsData.size(); i++) {
+                if (weightsData[i] == 0) {
+                    zerosCounts++;
+                }
+            }
+            std::cout << getName() << " | sparse rate = " << static_cast<float>(zerosCounts) * 100 / static_cast<float>(weightsData.size()) << "%" << std::endl;
+        }
     } else {
         IE_THROW(NotImplemented) << errorMessage;
     }
