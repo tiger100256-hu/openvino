@@ -83,18 +83,19 @@ static bool shouldBeDumped(const NodePtr& node, const Config& config, const std:
 static void dump(const BlobDumper& bd, const std::string& file, const Config& config) {
     static int file_index = 0;
     static std::mutex index_mutex;
+    std::string fileWithIndex;
     {
         const std::lock_guard<std::mutex> lock(index_mutex);
         file_index++;
-        file = file + "_" + std::to_string(file_index);
+        fileWithIndex = file + "_" + std::to_string(file_index);
     }
     switch (config.blobDumpFormat) {
     case Config::FORMAT::BIN: {
-        bd.dump(file);
+        bd.dump(fileWithIndex);
         break;
     }
     case Config::FORMAT::TEXT: {
-        bd.dumpAsTxt(file);
+        bd.dumpAsTxt(fileWithIndex);
         break;
     }
     default:
