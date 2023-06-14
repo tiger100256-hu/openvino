@@ -360,7 +360,11 @@ public:
     virtual void resolveInPlaceEdges(Edge::LOOK look = Edge::LOOK_BOTH);
 
     virtual void execute(dnnl::stream strm) = 0;
+#ifdef CPU_DEBUG_CAPS
+    void updateShapes(std::unordered_map<std::string, std::array<uint64_t, 5>>& countersMap);
+#else
     void updateShapes();
+#endif
     void updateDynamicParams();
     void executeDynamic(dnnl::stream strm);
     virtual void redefineOutputMemory(const std::vector<VectorDims> &newShapes);
