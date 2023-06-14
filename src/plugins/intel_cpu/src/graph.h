@@ -271,6 +271,10 @@ private:
     int dynBatch = -1;
 
     void EnforceBF16();
+
+#ifdef CPU_DEBUG_CAPS
+    mutable std::unordered_map<std::string, std::array<uint64_t, 5>> countersMap;
+#endif
 };
 
 }   // namespace intel_cpu
