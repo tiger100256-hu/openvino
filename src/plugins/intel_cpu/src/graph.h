@@ -266,6 +266,9 @@ private:
     void EnforceInferencePrecision();
     void EnforceBF16();
     void resolveInPlaceDirection(const NodePtr& node) const;
+#ifdef CPU_DEBUG_CAPS
+    mutable std::unordered_map<std::string, std::array<uint64_t, 5>> countersMap;
+#endif
 };
 
 }   // namespace intel_cpu
