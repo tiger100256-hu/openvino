@@ -134,6 +134,11 @@ public:
         return m_mask;
     };
 
+    ov::optional<std::vector<StaticShapeCon>> infer(const std::vector<StaticShapeRef>& input_shapes,
+        const ov::ITensorAccessor& tensor_accessor) override {
+        OPENVINO_THROW("Not implemented by base class");
+    }
+
 protected:
     std::vector<int64_t> input_ranks;
     std::shared_ptr<ov::Node> node;
