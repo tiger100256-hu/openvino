@@ -170,7 +170,7 @@ void Config::readProperties(const std::map<std::string, std::string> &prop, cons
             }
         } else if (key == PluginConfigParams::KEY_ENFORCE_BF16) {
             if (val == PluginConfigParams::YES) {
-                if (mayiuse(avx512_core)) {
+                if (mayiuse(avx512_core) || mayiuse(avx2_vnni_2)) {
                     inferencePrecision = ov::element::bf16;
                 } else {
                     IE_THROW() << "Platform doesn't support BF16 format";
@@ -184,13 +184,13 @@ void Config::readProperties(const std::map<std::string, std::string> &prop, cons
             inferencePrecisionSetExplicitly = true;
         } else if (key == ov::hint::inference_precision.name()) {
             if (val == "bf16") {
-                if (mayiuse(avx512_core)) {
+                if (mayiuse(avx512_core) || mayiuse(avx2_vnni_2)) {
                     inferencePrecision = ov::element::bf16;
                     inferencePrecisionSetExplicitly = true;
                 }
             } else if (val == "f16") {
 #if defined(OPENVINO_ARCH_X86_64)
-                if (mayiuse(avx512_core_fp16) || mayiuse(avx512_core_amx_fp16)) {
+                if (mayiuse(avx512_core_fp16) || mayiuse(avx512_core_amx_fp16) || mayiuse(avx2_vnni_2)) {
                     inferencePrecision = ov::element::f16;
                     inferencePrecisionSetExplicitly = true;
                 }
@@ -262,7 +262,7 @@ void Config::readProperties(const std::map<std::string, std::string> &prop, cons
             if (modelType != ModelType::CNN)
                 inferencePrecision = ov::element::f16;
 #else
-            if (mayiuse(avx512_core_bf16))
+            if (mayiuse(avx512_core_bf16) || mayiuse(avx2_vnni_2))
                 inferencePrecision = ov::element::bf16;
 #endif
         } else {
@@ -337,4 +337,4 @@ void Config::updateProperties() {
 }
 
 }  // namespace intel_cpu
-}   // namespace ov
+}  // namespace ov
