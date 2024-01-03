@@ -285,6 +285,9 @@ protected:
     void InferDynamic(SyncInferRequest* request, int numaId, UpdateStrategy&& update);
 
     friend std::shared_ptr<ov::Model> dump_graph_as_ie_ngraph_net(const Graph &graph);
+#ifdef CPU_DEBUG_CAPS
+    friend std::shared_ptr<ov::Model> dump_internal_graph_as_ie_ngraph_net(const Graph &graph);
+#endif
 
 private:
     using event_t = void (Graph::*)(void);

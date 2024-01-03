@@ -33,6 +33,7 @@ find_models(const std::vector<std::string> &dirs, const std::string& regexp) {
         std::vector<std::string> dir_content;
         if (ov::util::directory_exists(dir)) {
             dir_content = ov::util::get_filelist_recursive({dir}, FROTEND_REGEXP);
+            std::cout << "FROTEND_REGEXP size:" << FROTEND_REGEXP.size() << std::endl;
         } else if (ov::util::file_exists(dir) && std::regex_match(dir, std::regex(".*" + std::string(LST_EXTENSION)))) {
             dir_content = ov::util::read_lst_file({dir}), FROTEND_REGEXP;
         } else {

@@ -60,6 +60,9 @@ Node::Node(const std::shared_ptr<ov::Node>& op,
       name(op->get_friendly_name()),
       typeStr(op->get_type_name()),
       type(TypeFromName(op->get_type_name())),
+#ifdef CPU_DEBUG_CAPS
+      m_op(op),
+#endif
       profiling(op->get_friendly_name()) {
     for (size_t i = 0; i < op->get_input_size(); i++) {
         const auto &shape = op->get_input_partial_shape(i);

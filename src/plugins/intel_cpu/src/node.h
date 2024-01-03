@@ -642,6 +642,10 @@ public:
         return keepOriginalPrecision;
     }
 
+#ifdef CPU_DEBUG_CAPS
+   const std::shared_ptr<ov::Node> m_op;
+#endif
+
 protected:
     bool canFuseSimpleOperation(const NodePtr& node) const;
 
