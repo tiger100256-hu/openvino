@@ -110,6 +110,7 @@ private:
     //    Before: Concat(f16,f16)->Convert(f16->f32)->Output(f32) (when concat is non-inplace)
     //    After:  ConcatWithFuseConvert(f16,f32)->Output(f32) (Convert fused into Concat)
     static void TailNodesPrecisionOptimize(Graph& graph);
+    static void dump(Graph &graph, const std::string& name);
 };
 
 }  // namespace ov::intel_cpu

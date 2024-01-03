@@ -75,7 +75,12 @@ Node::Node(const std::shared_ptr<ov::Node>& op, GraphContext::CPtr ctx, const Sh
       engine(context->getEngine()),
       name(op->get_friendly_name()),
       typeStr(op->get_type_name()),
-      type(TypeFromName(op->get_type_name())) {
+#ifdef CPU_DEBUG_CAPS
+      type(TypeFromName(op->get_type_name())),
+      m_op(op){
+#else
+      type(TypeFromName(op->get_type_name())){
+#endif
     for (size_t i = 0; i < op->get_input_size(); i++) {
         const auto& shape = op->get_input_partial_shape(i);
         OPENVINO_ASSERT(!shape.rank().is_dynamic(),

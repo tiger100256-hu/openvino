@@ -16,6 +16,6 @@ std::shared_ptr<ov::Model> dump_graph_as_ie_ngraph_net(const Graph& graph);
 void serialize(const Graph& graph);
 void summary_perf(const Graph& graph);
 void average_counters(const Graph& graph);
+std::shared_ptr<ov::Model> dump_internal_graph_as_ie_ngraph_net(const Graph& graph);
 #endif  // CPU_DEBUG_CAPS
-
 }  // namespace ov::intel_cpu

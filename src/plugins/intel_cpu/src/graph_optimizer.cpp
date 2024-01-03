@@ -61,6 +61,9 @@
 #include "utils/cpu_utils.hpp"
 #include "utils/debug_capabilities.h"
 #include "utils/general_utils.h"
+#include <openvino/pass/manager.hpp>
+#include <openvino/pass/serialize.hpp>
+#include <openvino/pass/visualize_tree.hpp>
 
 // WA for xbyak.h
 #ifdef _WIN32
@@ -87,57 +90,71 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph& graph) {
     // For conv with input zp, canBeExecutedInInt8() check has dependency on input zero point check.
     // Also zero point node is the input of computing-intensive nodes. Most others fusing are the output of
     // computing-intensive nodes. So Locate the FuseConvolutionAndZeroPoints() as the first optimization.
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "CommonGraphOptimizationsStart"));
     OV_ITT_SCOPE_CHAIN(FIRST_INFERENCE,
                        taskChain,
                        itt::domains::ov_intel_cpu_LT,
                        "ApplyCommonGraphOptimizations",
                        "FuseConvolutionAndZeroPoints");
     FuseConvolutionAndZeroPoints(graph);
+
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionAndZeroPoints"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvMatmulFCDeconvAndDQScales");
     FuseConvMatmulFCDeconvAndDQScales(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvMatmulFCDeconvAndDQScales"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndBias");
     FuseConvolutionMatMulDeconvAndBias(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionAndBias"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMultiplyAndAdd");
     FuseMultiplyAndAdd(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseMultiplyAndAdd"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "MergeConvertAndEltwise");
     MergeConvertAndEltwise(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "MergeConvertAndScaleShift"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseFCAndConvertOnWeights");
     FuseConvDeconvFCAndConvertOnWeights(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseFCAndConvertOnWeights"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseFCAndTransposeOnWeights");
     FuseFCAndTransposeOnWeights(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseFCAndTransposeOnWeights"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseDeconvolutionAndSimpleOperation");
     FuseDeconvolutionAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseDeconvolutionAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseClampAndFakeQuantize");
     FuseClampAndFakeQuantize(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseClampAndFakeQuantize"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePerformedAsScaleShiftAndFakeQuantize");
     FusePerformedAsScaleShiftAndFakeQuantize(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FusePerformedAsScaleShiftAndFakeQuantize"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperationThroughMaxPool");
     FuseConvolutionAndSimpleOperationThroughMaxPool(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionAndSimpleOperationThroughMaxPool"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperation");
     FuseConvolutionAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
     graph.SortTopologically();
@@ -146,6 +163,7 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph& graph) {
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FusePoolingAndFakeQuantize");
     FusePoolingAndFakeQuantize(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FusePoolingAndFakeQuantize"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
     graph.SortTopologically();
@@ -154,38 +172,47 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph& graph) {
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndDWConvolution");
     FuseConvolutionAndDWConvolution(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionAndDWConvolution"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionSumAndConvolutionSumActivation");
     FuseConvolutionSumAndConvolutionSumActivation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionSumAndConvolutionSumActivation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseConvolutionAndSimpleOperation");
     FuseConvolutionAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseConvolutionAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseFullyConnectedAndSimpleOperation");
     FuseFullyConnectedAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseFullyConnectedAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMatMulAndSimpleOperation");
     FuseMatMulAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseMatMulAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseMVNAndSimpleOperation");
     FuseMVNAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseMVNAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseInterpolateAndSimpleOperation");
     FuseInterpolateAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseInterpolateAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseNormalizeL2AndSimpleOperation");
     FuseNormalizeL2AndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseNormalizeL2AndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseReduceAndSimpleOperation");
     FuseReduceAndSimpleOperation(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseReduceAndSimpleOperation"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseGatherAndConvert");
     FuseGatherAndConvert(graph);
@@ -194,6 +221,7 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph& graph) {
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "FuseEltwiseAndSimple");
     FuseEltwiseAndSimple(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "FuseEltwiseAndSimple"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "MergeEltwiseAndConvert");
     MergeEltwiseAndConvert(graph);
@@ -202,22 +230,27 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph& graph) {
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "reshapeRnnSeq");
     reshapeRnnSeq(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "reshapeRnnSeq"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveSameConvert");
     RemoveSameConvert(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "RemoveSameConvert"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveMemoryInputConvert");
     RemoveMemoryInputConvert(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "RemoveMemoryInputConvert"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveConvertMemoryOutput");
     RemoveConvertMemoryOutput(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "RemoveConvertMemoryOutput"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "MatchSdpaKvCache");
     MatchSdpaKvCache(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "MatchSdpaKvCache"));
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "DropRedundantMemoryOutput");
     DropRedundantMemoryOutput(graph);
@@ -225,6 +258,7 @@ void GraphOptimizer::ApplyCommonGraphOptimizations(Graph& graph) {
 
     OV_ITT_SCOPE_NEXT(FIRST_INFERENCE, taskChain, "RemoveDroppedEdges");
     graph.RemoveDroppedEdges();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "CommonGraphOptimizationsEnd"));
 }
 
 void GraphOptimizer::ApplyImplSpecificGraphOptimizations(Graph& graph) {
@@ -233,8 +267,10 @@ void GraphOptimizer::ApplyImplSpecificGraphOptimizations(Graph& graph) {
     TailNodesPrecisionOptimize(graph);
     graph.RemoveDroppedNodes();
 
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "SpecificGraphOptimizationsStart"));
     DropDoubleReorders(graph);
     graph.RemoveDroppedNodes();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "DropDoubleReorders"));
 
     MergeTransposeAndReorder(graph);
     graph.RemoveDroppedNodes();
@@ -243,6 +279,8 @@ void GraphOptimizer::ApplyImplSpecificGraphOptimizations(Graph& graph) {
     graph.RemoveDroppedNodes();
 
     graph.RemoveDroppedEdges();
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "MergeTransposeAndReorder"));
+    CPU_DEBUG_CAP_ENABLE(dump(graph, "SpecificGraphOptimizationsEnd"));
 }
 
 void GraphOptimizer::FuseConvMatmulFCDeconvAndDQScales(Graph& graph) {
@@ -3642,6 +3680,23 @@ void GraphOptimizer::TailNodesPrecisionOptimize(Graph& graph) {
     }
 }
 
-}  // namespace ov::intel_cpu
-
 // NOLINTEND(modernize-loop-convert)
+void GraphOptimizer::dump(Graph &graph, const std::string& name) {
+    static int count = 0;
+    graph.SortTopologically();
+    graph.RemoveDroppedEdges();
+    std::cout << "dump graph stage:" <<  std::to_string(count) << " " << name << std::endl;
+    ov::pass::Manager serializer;
+    std::string  xmlFile(graph.GetName() + "_" + std::to_string(count) + "_" + name + ".xml");
+    std::string  binFile("/dev/null"); // @todo make it crossplatform using dummy implementation of std::ostream
+    serializer.register_pass<ov::pass::Serialize>(xmlFile, binFile);
+    try {
+        serializer.run_passes(dump_internal_graph_as_ie_ngraph_net(graph));
+    } catch (ov::Exception& e) {
+        std::cout << "dump graph stage:" <<  std::to_string(count) << " " << name
+                  << " failed, error:" << e.what()  << std::endl;
+    }
+    count++;
+}
+
+}  // namespace ov::intel_cpu

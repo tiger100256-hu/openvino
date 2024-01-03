@@ -45,6 +45,89 @@ void serializeToXML(const Graph& graph, const std::filesystem::path& path);
 
 namespace {
 
+#ifdef CPU_DEBUG_CAPS
+std::map<std::string, std::string> extract_internal_node_metadata(const NodePtr& node) {
+    std::map<std::string, std::string> serialization_info;
+
+    if (node->getType() == Type::Input && node->isConstant()) {
+        // We need to separate Input and Const layers
+        serialization_info[ov::exec_model_info::LAYER_TYPE] = "Const";
+    } else {
+        serialization_info[ov::exec_model_info::LAYER_TYPE] = NameFromType(node->getType());
+    }
+
+    // Original layers
+    serialization_info[ov::exec_model_info::ORIGINAL_NAMES] = node->getOriginalLayers();
+
+    // Implementation type name
+    serialization_info[ov::exec_model_info::IMPL_TYPE] = node->getPrimitiveDescriptorType();
+
+    // std::string outputPrecisionsStr;
+    // if (!node->getChildEdges().empty()) {
+    //     outputPrecisionsStr = node->getChildEdgeAt(0)->getMemory().getDesc().getPrecision().get_type_name();
+
+    //     bool isAllEqual = true;
+    //     for (size_t i = 1; i < node->getChildEdges().size(); i++) {
+    //         if (node->getChildEdgeAt(i - 1)->getMemory().getDesc().getPrecision() != node->getChildEdgeAt(i)->getMemory().getDesc().getPrecision()) {
+    //             isAllEqual = false;
+    //             break;
+    //         }
+    //     }
+
+    //     // If all output precisions are the same, we store the name only once
+    //     if (!isAllEqual) {
+    //         for (size_t i = 1; i < node->getChildEdges().size(); i++)
+    //             outputPrecisionsStr += "," + std::string(node->getChildEdgeAt(i)->getMemory().getDesc().getPrecision().get_type_name());
+    //     }
+    // } else {
+    //     // Branch to correctly handle output nodes
+    //     if (!node->getParentEdges().empty()) {
+    //         outputPrecisionsStr = node->getParentEdgeAt(0)->getMemory().getDesc().getPrecision().get_type_name();
+    //     }
+    // }
+    // serialization_info[ExecGraphInfoSerialization::OUTPUT_PRECISIONS] = outputPrecisionsStr;
+
+    std::string outputLayoutsStr;
+    if (node->getSelectedPrimitiveDescriptor()) {
+        auto outDescs = node->getSelectedPrimitiveDescriptor()->getConfig().outConfs;
+        if (!outDescs.empty()) {
+            outputLayoutsStr = outDescs[0].getMemDesc()->serializeFormat();
+
+            bool isAllEqual = true;
+            for (size_t i = 1; i < outDescs.size(); i++) {
+                if (outDescs[i - 1].getMemDesc()->serializeFormat() != outDescs[i].getMemDesc()->serializeFormat()) {
+                    isAllEqual = false;
+                    break;
+                }
+            }
+
+            // If all output layouts are the same, we store the name only once
+            if (!isAllEqual) {
+                for (size_t i = 1; i < outDescs.size(); i++) {
+                    outputLayoutsStr += "," + outDescs[i].getMemDesc()->serializeFormat();
+                }
+            }
+        } else {
+            outputLayoutsStr = dnnl::utils::fmt2str(dnnl::memory::format_tag::undef);
+        }
+
+        // serialization_info[ExecGraphInfoSerialization::EXECUTION_ORDER] = std::to_string(node->getExecIndex());
+        serialization_info[ov::exec_model_info::RUNTIME_PRECISION] = node->getRuntimePrecision().get_type_name();
+    }
+    serialization_info[ov::exec_model_info::OUTPUT_LAYOUTS] = outputLayoutsStr;
+
+    // Performance
+    if (node->PerfCounter().avg() != 0) {
+        serialization_info[ov::exec_model_info::PERF_COUNTER] = std::to_string(node->PerfCounter().avg());
+    } else {
+        serialization_info[ov::exec_model_info::PERF_COUNTER] = "not_executed";  // it means it was not calculated yet
+    }
+
+
+    return serialization_info;
+}
+#endif
+
 std::map<std::string, std::string> extract_node_metadata(const NodePtr& node) {
     std::map<std::string, std::string> serialization_info;
 
@@ -236,9 +319,138 @@ std::shared_ptr<ov::Model> dump_graph_as_ie_ngraph_net(const Graph& graph) {
 }
 
 #ifdef CPU_DEBUG_CAPS
+std::shared_ptr<ov::Model> dump_internal_graph_as_ie_ngraph_net(const Graph& graph) {
+    std::map<NodePtr, std::shared_ptr<ov::Node>> node2layer;
+
+    ov::ResultVector results;
+    ov::ParameterVector params;
+    ov::NodeVector to_hold;
+
+    std::map<std::size_t, std::shared_ptr<op::v0::Parameter>> paramsMap;
+    std::map<std::size_t, std::shared_ptr<ov::op::v0::Result>> resultsMap;
+
+    auto get_inputs = [&](const NodePtr& node) {
+        auto pr_edges = node->getParentEdges();
+        ov::OutputVector inputs(pr_edges.size());
+
+        for (size_t i = 0; i < pr_edges.size(); i++) {
+            auto edge = node->getParentEdgeAt(i);
+            int pr_port = edge->getInputNum();
+            int ch_port = edge->getOutputNum();
+            auto pr_node = edge->getParent();
+
+            OPENVINO_ASSERT(node2layer.count(pr_node) == 1);
+            auto pr = node2layer[pr_node];
+
+            inputs[ch_port] = pr->output(pr_port);
+        }
+
+        return inputs;
+    };
+
+    auto create_ngraph_node = [&](const NodePtr& node) {
+        auto found_input = std::find(graph.inputNodes.begin(), graph.inputNodes.end(), node);
+        const auto is_input = found_input != graph.inputNodes.end();
+        auto found_output = std::find(graph.outputNodes.begin(), graph.outputNodes.end(), node);
+        const auto is_output = found_output != graph.outputNodes.end();
+
+        // The node has no consumer and is not an output.
+        // Should be hold in other irregular way.
+        bool should_be_hold = !is_output && node->getChildEdges().empty();
+
+        auto meta_data = extract_internal_node_metadata(node);
+        std::shared_ptr<ov::Node> return_node;
+        auto& op = node->m_op;
+        if (is_input) {
+            auto param = std::make_shared<ov::op::v0::Parameter>(op->get_output_element_type(0), op->get_output_partial_shape(0));
+            return_node = param;
+            const auto input_index = std::distance(graph.inputNodes.begin(), found_input);
+            paramsMap[input_index] = param;
+        } else if (is_output) {
+            auto result = std::make_shared<ov::op::v0::Result>(get_inputs(node).back());
+            const auto output_index = std::distance(graph.outputNodes.begin(), found_output);
+            resultsMap[output_index] = result;
+            return_node = result;
+        } else {
+            auto descript = node->getSelectedPrimitiveDescriptor();
+            if (descript == nullptr) {
+                size_t output_size = 0;
+                if (op == nullptr)
+                     output_size = node->getOriginalOutputsNumber();
+                else
+                     output_size = op->get_output_size();
+                return_node = std::make_shared<ov::exec_model_info::ExecutionNode>(
+                        get_inputs(node),
+                        output_size);
+                for (size_t port = 0; port < return_node->get_output_size(); ++port) {
+                    if (op == nullptr) {
+                        auto shape = node->getOutputShapeAtPort(port);
+                        auto element_type = node->getOriginalOutputPrecisionAtPort(port);
+                        return_node->set_output_type(port, element_type, shape.toPartialShape());
+                    } else {
+                        auto& partial_shape = op->get_output_partial_shape(port);
+                        auto& element_type = op->get_output_element_type(port);
+                        return_node->set_output_type(port, element_type, partial_shape);
+                    }
+                }
+            } else {
+                auto output_size = descript->getConfig().outConfs.size();
+                return_node = std::make_shared<ov::exec_model_info::ExecutionNode>(
+                        get_inputs(node),
+                        output_size);
+                for (size_t port = 0; port < return_node->get_output_size(); ++port) {
+                    auto memory_ptr = node->getChildEdgeAt(port)->getMemoryPtr();
+                    if (memory_ptr != nullptr) {
+                        const auto& desc = memory_ptr->getDesc();
+                        return_node->set_output_type(port, desc.getPrecision(), desc.getShape().toPartialShape());
+                    } else if(op != nullptr) {
+                        auto& partial_shape = op->get_output_partial_shape(port);
+                        auto& element_type = op->get_output_element_type(port);
+                        return_node->set_output_type(port, element_type, partial_shape);
+                    } else {
+                        OPENVINO_ASSERT(false, "dump failed");
+                    }
+                }
+            }
+        }
+
+        if (should_be_hold) {
+            to_hold.push_back(return_node);
+        }
+
+        for (auto&& kvp : meta_data) {
+            return_node->get_rt_info()[kvp.first] = kvp.second;
+        }
+        return_node->set_friendly_name(node->getName());
+
+        return return_node;
+    };
+
+    ov::NodeVector nodes;
+    nodes.reserve(graph.graphNodes.size());
+    for (const auto& node : graph.graphNodes) {  // important: graph.graphNodes are in topological order
+        nodes.emplace_back(create_ngraph_node(node));
+        node2layer[node] = nodes.back();
+    }
+
+    for (auto&& kvp : paramsMap) {
+        params.push_back(kvp.second);
+    }
+    for (auto&& kvp : resultsMap) {
+        results.push_back(kvp.second);
+    }
+
+    auto holder = !results.empty() ? results[0] : std::make_shared<ov::op::v0::Result>();
+    for (auto& node : to_hold) {
+        holder->add_control_dependency(node);
+    }
+
+    return std::make_shared<ov::Model>(results, params, graph._name);
+}
+
+
 void serialize(const Graph& graph) {
     const std::string& pathStr = graph.getConfig().debugCaps.execGraphPath;
-
     if (pathStr.empty()) {
         return;
     }
