@@ -316,12 +316,8 @@ void Transformations::PreLpt(const std::vector<ov::element::Type>& defaultPrecis
         // @todo should we always convert to f32 regardless of hardware support, as it is done for f16?
         if (!hasHardwareSupport(ov::element::bf16))
             map.insert({ov::element::bf16, ov::element::f32});
-#if defined(OV_CPU_ARM_ENABLE_FP16)
         if (inferencePrecision != ov::element::f16)
             map.insert({ov::element::f16, ov::element::f32});
-#else
-        map.insert({ov::element::f16, ov::element::f32});
-#endif
         return map;
     };
 
