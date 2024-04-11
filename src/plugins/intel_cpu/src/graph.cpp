@@ -1736,7 +1736,7 @@ void Graph::EnforceInferencePrecision() {
 
     const auto inferPrec = getConfig().inferencePrecision;
 
-    if (one_of(inferPrec, ov::element::f32, ov::element::f16))
+    if (one_of(inferPrec, ov::element::f32))
         return; // nothing to do, only precision reduction is currently allowed
 #if defined(OPENVINO_ARCH_ARM) || defined(OPENVINO_ARCH_ARM64)
     if (inferPrec == ov::element::f16)
@@ -1795,6 +1795,42 @@ void Graph::EnforceInferencePrecision() {
     for (const auto& node : graphNodes) {
         if (nodesToSkip.count(node) && !node->enforceBF16evenForGraphTail)
             continue;
+        // logic for x64 fp16 tail process
+        if (inferPrec == ov::element::f16) {
+            for (const auto& node : nodesToSkip) {
+                if (one_of(node->getType(), Type::Input, Type::Output, Type::MemoryInput, Type::MemoryOutput))
+                    continue;
+                if (node->keepOrigPrecision())
+                    continue;
+                for (size_t i = 0; i < node->getOriginalInputsNumber(); i++) {
+                    // keep original precision cases
+                    auto keepOriginalInputPrecisionAtPort = [](const NodePtr& node, const size_t inPort) {
+                        // kvcache of PagedAttention should be written directly
+                        if (node->getType() == Type::ScaledDotProductAttention &&
+                            node->getOriginalInputsNumber() == 13 && (inPort == 3 || inPort == 4))
+                            return true;
+                        const auto& parent = node->getParentEdgeAt(inPort)->getParent();
+                        /* Skip BF16 enforcement for nodes after Constant Inputs for maintaining precision for fusing.
+                         * Element type conversion to bf16 is done automatically, if convolution follows up after
+                         * Constant Inputs and activation is bf16 */
+                        if (parent->getType() == Type::Input && parent->isConstant() &&
+                            // Concatenation node is exception because it doesn't change an accuracy for BF16 activation
+                            node->getType() != Type::Concatenation)
+                            return true;
+
+                        return false;
+                    };
+                    if (keepOriginalInputPrecisionAtPort(node, i))
+                        continue;
+                    node->setOriginalInputPrecisionAtPort(i, ov::element::f32);
+                }
+
+                for (size_t i = 0; i < node->getOriginalOutputsNumber(); i++) {
+                    node->setOriginalOutputPrecisionAtPort(i, ov::element::f32);
+                }
+            }
+            return;
+        }
 
         if (one_of(node->getType(), Type::Input, Type::Output, Type::MemoryInput, Type::MemoryOutput))
             continue;
