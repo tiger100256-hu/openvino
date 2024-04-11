@@ -775,6 +775,12 @@ void Transformations::MainSnippets(void) {
         !dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2)) // snippets are implemented only for relevant platforms (avx2+ extensions)
         return;
 
+    // W.A. disable snippets for x64 fp16 platforms
+    if ((dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx512_core_fp16) ||
+         dnnl::impl::cpu::x64::mayiuse(dnnl::impl::cpu::x64::avx2_vnni_2)) &&
+        (inferencePrecision == ov::element::f16))
+        return;
+
     ov::snippets::pass::SnippetsTokenization::Config tokenization_config;
     // [111813]: At the moment Snippets supports Transpose on output of MHA pattern only if it is an one node between MatMul and Result.
     // However there may be Convert [f32->bf16] before Result since:
