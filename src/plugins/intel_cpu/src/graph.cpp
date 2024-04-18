@@ -360,6 +360,7 @@ void Graph::ResolveInplaceDirections() {
     }
 }
 
+
 void Graph::InitOptimalPrimitiveDescriptors() {
     OV_ITT_SCOPED_TASK(itt::domains::intel_cpu, "Graph::InitOptimalPrimitiveDescriptors");
     for (auto &node : graphNodes) {
