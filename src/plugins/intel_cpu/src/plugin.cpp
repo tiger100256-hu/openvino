@@ -156,9 +156,7 @@ void Plugin::get_performance_streams(Config& config, const std::shared_ptr<ov::M
         streams = streams_set == 1 ? 0 : streams_set;
     }
 
-    if (!((0 == streams_set) && config.streamsChanged)) {
-        get_num_streams(streams, model, config);
-    }
+    get_num_streams(streams, model, config);
 }
 
 void Plugin::calculate_streams(Config& conf, const std::shared_ptr<ov::Model>& model, bool imported) const {
@@ -213,7 +211,7 @@ static Config::ModelType getModelType(const std::shared_ptr<const Model>& model)
     if (op::util::has_op_with_type<op::v1::Convolution>(model) ||
         op::util::has_op_with_type<op::v1::ConvolutionBackpropData>(model))
         return Config::ModelType::CNN;
-    
+
     if (op::util::has_op_with_type<op::v13::ScaledDotProductAttention>(model) &&
         model->get_variables().size() > 0)
         return Config::ModelType::LLM;
