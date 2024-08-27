@@ -47,6 +47,7 @@
 
 #include "openvino/runtime/threading/cpu_streams_executor.hpp"
 #include "openvino/core/parallel.hpp"
+#include "nodes/linux_perf.hpp"
 
 #if (OV_THREAD == OV_THREAD_TBB || OV_THREAD == OV_THREAD_TBB_AUTO)
 #    include <tbb/task.h>
@@ -1100,6 +1101,7 @@ void Graph::InferStatic(SyncInferRequest* request) {
         VERBOSE(node, getConfig().debugCaps.verbose);
         PERF(node, getConfig().collectPerfCounters);
 
+        auto prof = LinuxPerf::Profile(node->getTypeStr());
         if (request)
             request->throw_if_canceled();
         ExecuteNode(node, stream);
@@ -1339,6 +1341,7 @@ void Graph::InferDynamic(SyncInferRequest* request) {
             VERBOSE(node, getConfig().debugCaps.verbose);
             PERF(node, getConfig().collectPerfCounters);
 
+            auto prof = LinuxPerf::Profile(node->getTypeStr());
             if (request)
                 request->throw_if_canceled();
             ExecuteNode(node, stream);
@@ -1432,6 +1435,8 @@ void Graph::ParalleMtNuma(size_t num_nodes,
 
 void Graph::Infer(SyncInferRequest* request) {
     DEBUG_LOG("Starting inference of the graph: ", GetName(), ". Status: ", static_cast<int>(status));
+    static std::atomic_int count;
+    auto prof = LinuxPerf::Profile("Graph::Infer" + std::to_string(count++));
     if (!IsReady()) {
         OPENVINO_THROW("Wrong state of the ov::intel_cpu::Graph. Topology is not ready.");
     }
