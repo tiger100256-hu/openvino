@@ -53,7 +53,7 @@ BrgemmKernel::BrgemmKernel(size_t M,
     else
         vlen = cpu_isa_traits<cpu_isa_t::avx2>::vlen;
     // blocking N
-    N_blk = is_bf16 ? 32 : std::max(N, vlen / inType.size());
+    N_blk = 32; // copy_b always writes 16 bytes in N dimension for avx512 f32, so makes N_blk aligned 16 bytes+
     N_tail = N % N_blk;
 
     // blocking K
