@@ -1434,6 +1434,8 @@ void ScaledDotProductAttention::createPrimitive() {
 #ifdef OPENVINO_ARCH_X86_64
             if (rtPrecision == ov::element::bf16) {
                 executor = std::make_shared<MHAExecutor<ov::bfloat16>>(context);
+            } else if (rtPrecision == ov::element::f16) {
+                executor = std::make_shared<MHAExecutor<ov::float16>>(context);
             } else {
                 executor = std::make_shared<MHAExecutor<float>>(context);
             }

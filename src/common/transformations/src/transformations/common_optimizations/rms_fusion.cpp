@@ -64,7 +64,7 @@ RMSFusion::RMSFusion(bool force_tail_convert) {
     auto mul1 = wrap_type<ov::op::v1::Multiply>({x, div});
 
     // x * 1/Sqrt(ReduceMean(x^2,axes)+eps) * gamma
-    auto gamma = wrap_type<ov::op::v0::Constant>(type_matches(element::f32));
+    auto gamma = wrap_type<ov::op::v0::Constant>();
     auto mul2 = wrap_type<ov::op::v1::Multiply>({gamma, mul1});
 
     std::shared_ptr<ov::Node> comp = mul2;
