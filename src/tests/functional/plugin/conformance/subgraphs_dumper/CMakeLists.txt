@@ -45,6 +45,8 @@ ov_add_test_target(
         LINK_LIBRARIES
             PRIVATE
                 ${LIBRARIES}
+        DEFINES
+            ${COMPILE_DEFINITIONS}
         DEPENDENCIES
             ov_frontends
             ${LIBRARIES}

@@ -13,6 +13,7 @@ namespace intel_cpu {
 
 std::shared_ptr<ov::Model> dump_graph_as_ie_ngraph_net(const Graph &graph);
 #ifdef CPU_DEBUG_CAPS
+std::shared_ptr<ov::Model> dump_internal_graph_as_ie_ngraph_net(const Graph &graph);
 void serialize(const Graph &graph);
 void summary_perf(const Graph &graph);
 #endif // CPU_DEBUG_CAPS
