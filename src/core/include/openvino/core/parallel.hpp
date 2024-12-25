@@ -16,6 +16,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <iostream>
 
 #define OV_THREAD_TBB      0
 #define OV_THREAD_OMP      1
@@ -429,7 +430,14 @@ typename std::enable_if<N_ARGS == sizeof...(T), void>::type call_with_args(const
 }
 }  // namespace helpers
 
-constexpr int MULTIPLIER = 32;
+const int MULTIPLIER = []() -> int {
+        static int multiplier = []() -> int {
+            int multiplier =  std::stoi(std::getenv("TBB_MULTIPLIER"));
+            std::cout << "core multiplier:" << multiplier << std::endl;
+            return  multiplier;
+        }();
+        return multiplier;
+    }();
 
 template <typename T0, typename F>
 void for_1d(const int& ithr, const int& nthr, const T0& D0, const F& func) {
