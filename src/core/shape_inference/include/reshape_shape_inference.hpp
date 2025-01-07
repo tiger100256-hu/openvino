@@ -262,10 +262,12 @@ std::vector<TRShape> shape_infer(const Reshape* op,
                                  const ITensorAccessor& ta = make_tensor_accessor()) {
     NODE_VALIDATION_CHECK(op, input_shapes.size() == 2);
 
+    std::cout << " =========== start" << std::endl;
     using namespace ov::util;
     using TDim = typename T::value_type;
 
     const auto& input_shape = input_shapes[0];
+    std::cout << "input_shape" << input_shape << std::endl;
     const auto& pattern_shape = input_shapes[1];
     const auto input_rank = input_shape.rank();
     const auto pattern_shape_rank = pattern_shape.rank();
@@ -297,7 +299,9 @@ std::vector<TRShape> shape_infer(const Reshape* op,
         reshape::Product<TDim> product;
 
         if (input_rank.is_dynamic()) {
+            std::cout << "input_rank.is_dynamic output_pattern:";
             for (const auto& pattern : output_pattern) {
+                std::cout << pattern << ",";
                 if (special_zero && pattern == 0) {
                     output_shape.emplace_back(dim::inf_bound);
                     product.set_inf();
@@ -306,11 +310,14 @@ std::vector<TRShape> shape_infer(const Reshape* op,
                     product.update_out(pattern);
                 }
             }
+            std::cout << std::endl;
         } else {
             auto input_iter = input_shape.begin();
             auto input_last = input_shape.end();
 
+            std::cout << "output_pattern:";
             for (size_t i = 0; i < output_pattern.size(); ++i) {
+                std::cout << output_pattern[i] << ",";
                 const auto& pattern_dim = output_pattern[i];
                 auto ignore_pattern_dim = special_zero && (pattern_dim == 0);
 
@@ -332,12 +339,14 @@ std::vector<TRShape> shape_infer(const Reshape* op,
                     ++input_iter;
                 }
             }
+            std::cout << std::endl;
 
             // update input product by remaining input dimensions.
             for (; input_iter != input_last; ++input_iter) {
                 product.update_in(*input_iter);
             }
         }
+
         product.calculate();
 
         // resolving -1 masked dimension
@@ -363,8 +372,11 @@ std::vector<TRShape> shape_infer(const Reshape* op,
         }
 
         if (input_shape.is_static() && output_shape.is_static()) {
+            std::cout << "input and ouput is static" << std::endl;
             const auto zero_dims = std::any_of(output_pattern.begin(), output_pattern.end(), cmp::Equal<TDim>(0));
-            const auto backward_compatible_check = (zero_dims && special_zero) || has_minus_one_idx;
+            std::cout << "(zero_dims && special_zero)" << ((zero_dims && special_zero) ? 1 : 0) << std::endl;
+            // const auto backward_compatible_check = (zero_dims && special_zero) || has_minus_one_idx;
+            const auto backward_compatible_check =  has_minus_one_idx;
             const auto in_out_elements_equal = (product.get_static_in() == product.get_static_out());
 
             NODE_SHAPE_INFER_CHECK(op,
@@ -375,6 +387,7 @@ std::vector<TRShape> shape_infer(const Reshape* op,
                                    " is incompatible with input shape");
         }
     } else if (pattern_shape_rank.is_static()) {
+        std::cout << "pattern_shape_rank.is_static" << std::endl;
         if (pattern_shape_rank.get_length() == 0) {
             NODE_SHAPE_INFER_CHECK(op,
                                    input_shapes,
@@ -385,8 +398,10 @@ std::vector<TRShape> shape_infer(const Reshape* op,
                 PartialShape::dynamic(Rank(pattern_shape[0].get_min_length(), pattern_shape[0].get_max_length()));
         }
     } else {
+        std::cout << "others" << std::endl;
         output_shape = PartialShape::dynamic();
     }
+    std::cout << " =========== end" << std::endl;
     return output_shapes;
 }
 }  // namespace v1
