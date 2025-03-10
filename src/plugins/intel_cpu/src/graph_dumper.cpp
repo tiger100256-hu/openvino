@@ -4,10 +4,12 @@
 
 #include "graph_dumper.h"
 
+#include <atomic>
 #include <chrono>
 #include <fstream>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -231,8 +233,32 @@ void serialize(const Graph& graph) {
     if (path == "cout") {
         serializeToCout(graph);
     } else if (!path.compare(path.size() - 4, 4, ".xml")) {
-        static int g_idx = 0;
-        std::string xmlPath = std::string(path, 0, path.size() - 4) + "_" + std::to_string(g_idx++) + ".xml";
+        static std::map<const Graph*, std::string> graphStatusMap;
+        static std::map<const Graph*, int> graphIndexMap;
+        static std::mutex g_mutex;
+        static auto removeValidChar = [](const std::string& filename) -> std::string {
+            std::string result = filename;
+            std::string invalidChars = "<>:\"/\\|?*";
+            result.erase(std::remove_if(result.begin(), result.end(),
+                        [&](char c) {
+                        return invalidChars.find(c) != std::string::npos;
+                        }),
+                    result.end());
+            std::replace(result.begin(), result.end(), ' ', '_');
+            return result;
+        };
+        std::string xmlPath;
+        {
+            std::lock_guard<std::mutex> lock(g_mutex);
+            std::string statusStr = graph.GetStatusStr();
+            if (graphStatusMap[&graph] != statusStr) {
+                graphStatusMap[&graph] = statusStr;
+                graphIndexMap[&graph] = 0;
+            }
+            // std::string pointerStr = std::to_string((unsigned long long)(void*)(&graph));
+            std::string graphName = removeValidChar(graph.GetName());
+            xmlPath = std::string(path, 0, path.size() - 4) + "_" + graphName + "_" + statusStr + "_" + std::to_string(graphIndexMap[&graph]++) + ".xml";
+        }
         serializeToXML(graph, xmlPath);
     } else {
         OPENVINO_THROW("Unknown serialize format. Should be either 'cout' or '*.xml'. Got ", path);

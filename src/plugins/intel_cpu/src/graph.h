@@ -41,6 +41,7 @@ public:
         ReadyStatic = 2,
         ReadyDynamic = 3,
         ReadyDynamicSeq = 4,
+        ReadyDestory = 5,
     };
 
     Graph() = default;
@@ -280,7 +281,27 @@ public:
     const std::unordered_map<std::size_t, ProxyMemoryBlockPtr>& getOutputNodesMemBlocksMap() const {
         return m_outputNodesMemBlocks;
     }
+#ifdef CPU_DEBUG_CAPS
+    const std::string GetStatusStr() const {
+        switch (status) {
+            case Status::NotReady:
+                return "NotReady";
+            case Status::Initialized:
+                return "Initialized";
+            case Status::ReadyStatic:
+                return "ReadyStatic";
+            case Status::ReadyDynamic:
+                return "ReadyDynamic";
+            case Status::ReadyDynamicSeq:
+                return "ReadyDynamicSeq";
+            case Status::ReadyDestory:
+                return "ReadyDestory";
+            default:
+                return "UnknownStatus";
+        }
+    };
 
+#endif
 protected:
     void ForgetGraphData() {
         status = Status::NotReady;

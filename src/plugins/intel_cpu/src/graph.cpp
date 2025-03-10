@@ -64,6 +64,8 @@ namespace ov::intel_cpu {
 Graph::~Graph() {
     CPU_DEBUG_CAP_ENABLE(summary_perf(*this));
     CPU_DEBUG_CAP_ENABLE(average_counters(*this));
+    status = Status::ReadyDestory;
+    CPU_DEBUG_CAP_ENABLE(serialize(*this));
 }
 
 template <typename NET>
