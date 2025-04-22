@@ -315,7 +315,11 @@ void BrgemmKernel::init_brgemm_copy_b(
             // TODO: AMX_FP16
             brgCopyKernelConf.isa = mayiuse(avx512_core_fp16) ? avx512_core_fp16 : avx2_vnni_2;
         } else {
-            brgCopyKernelConf.isa = dt_in0 == dnnl_data_type_t::dnnl_bf16 ? avx512_core_bf16 : avx512_core_vnni;
+            if (mayiuse(avx512_core)) {
+                brgCopyKernelConf.isa = dt_in0 == dnnl_data_type_t::dnnl_bf16 ? avx512_core_bf16 : avx512_core_vnni;
+            } else {
+                brgCopyKernelConf.isa = avx2_vnni_2;
+            }
         }
         brgCopyKernelConf.s8s8_compensation_required = dt_in0 == dnnl_data_type_t::dnnl_s8;
     }
