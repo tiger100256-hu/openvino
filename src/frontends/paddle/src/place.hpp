@@ -102,13 +102,9 @@ private:
     std::weak_ptr<TensorPlace> m_target_tensor;
 };
 
-class OpPlace : public Place {
+class BaseOpPlace : public Place {
 public:
-    OpPlace(const ov::frontend::InputModel& input_model,
-            const ::paddle::framework::proto::OpDesc& op_desc,
-            const std::vector<std::string>& names);
-
-    OpPlace(const ov::frontend::InputModel& input_model, const ::paddle::framework::proto::OpDesc& op_desc);
+    OpPlace(const ov::frontend::InputModel& input_model, const std::vector<std::string>& names);
 
     void add_in_port(const std::shared_ptr<InPortPlace>& input, const std::string& name);
     void add_out_port(const std::shared_ptr<OutPortPlace>& output, const std::string& name);
@@ -118,7 +114,6 @@ public:
     const std::map<std::string, std::vector<std::shared_ptr<InPortPlace>>>& get_input_ports() const;
     std::shared_ptr<OutPortPlace> get_output_port_paddle(const std::string& outputName, int outputPortIndex) const;
     std::shared_ptr<InPortPlace> get_input_port_paddle(const std::string& inputName, int inputPortIndex) const;
-    const ::paddle::framework::proto::OpDesc& get_desc() const;
     const std::shared_ptr<DecoderBase> get_decoder() const;
     void set_decoder(const std::shared_ptr<DecoderBase> op_decoder);
 
@@ -155,20 +150,40 @@ public:
     Ptr get_target_tensor(const std::string& outputName) const override;
     Ptr get_target_tensor(const std::string& outputName, int outputPortIndex) const override;
 
-private:
+protect:
     const ::paddle::framework::proto::OpDesc& m_op_desc;  // TODO: to conceal it behind decoder.
     std::shared_ptr<DecoderBase> m_op_decoder;
     std::map<std::string, std::vector<std::shared_ptr<InPortPlace>>> m_input_ports;
     std::map<std::string, std::vector<std::shared_ptr<OutPortPlace>>> m_output_ports;
 };
 
-class TensorPlace : public Place {
+class ProtoOpPlace : public BaseOpPlace {
+public:
+    OpPlace(const ov::frontend::InputModel& input_model,
+            const ::paddle::framework::proto::OpDesc& op_desc,
+            const std::vector<std::string>& names);
+    OpPlace(const ov::frontend::InputModel& input_model, const ::paddle::framework::proto::OpDesc& op_desc);
+    const ::paddle::framework::proto::OpDesc& get_desc() const;
+private:
+    const ::paddle::framework::proto::OpDesc& m_op_desc;  // TODO: to conceal it behind decoder.
+}
+
+class JsonOpPlace : public BaseOpPlace {
+public:
+    JsonOpPlace(const ov::frontend::InputModel& input_model,
+            const nlohmann::json& op_desc,
+            const std::vector<std::string>& names);
+
+    JsonOpPlace(const ov::frontend::InputModel& input_model, const nlohmann::json& op_desc);
+    const nlohmann::json& get_desc() const;
+private:
+    const nlohmann::json& m_op_desc;  // TODO: to conceal it behind decoder.
+};
+
+class BaseTensorPlace : public Place {
 public:
     TensorPlace(const ov::frontend::InputModel& input_model,
-                const std::vector<std::string>& names,
-                const ::paddle::framework::proto::VarDesc& var_desc);
-
-    TensorPlace(const ov::frontend::InputModel& input_model, const ::paddle::framework::proto::VarDesc& var_desc);
+                const std::vector<std::string>& names);
 
     void add_producing_port(const std::shared_ptr<OutPortPlace>& out_port);
     void add_consuming_port(const std::shared_ptr<InPortPlace>& in_port);
@@ -186,7 +201,6 @@ public:
     void set_element_type(const element::Type& type) {
         m_type = type;
     }
-    const ::paddle::framework::proto::VarDesc& get_desc() const;
 
     // External usage
     Ptr get_producing_operation() const override;
@@ -195,13 +209,34 @@ public:
     Ptr get_producing_port() const override;
     bool is_equal_data(const Ptr& another) const override;
 
-private:
-    const ::paddle::framework::proto::VarDesc& m_var_desc;
+protect:
     PartialShape m_pshape;
     element::Type m_type;
 
     std::vector<std::weak_ptr<OutPortPlace>> m_producing_ports;
     std::vector<std::weak_ptr<InPortPlace>> m_consuming_ports;
+};
+
+class ProtoTensorPlace : public BaseTensorPlace {
+public:
+    TensorPlace(const ov::frontend::InputModel& input_model,
+            const std::vector<std::string>& names,
+            const ::paddle::framework::proto::VarDesc& var_desc);
+    TensorPlace(const ov::frontend::InputModel& input_model, const ::paddle::framework::proto::VarDesc& var_desc);
+    const ::paddle::framework::proto::VarDesc& get_desc() const;
+private:
+    const ::paddle::framework::proto::VarDesc& m_var_desc;
+};
+
+class JsonTensorPlace : public BaseTensorPlace {
+public:
+    JsonTensorPlace(const ov::frontend::InputModel& input_model,
+            const std::vector<std::string>& names,
+            const nlohmann::json& var_desc);
+    JsonTensorPlace(const ov::frontend::InputModel& input_model, nlohmann::json& var_desc);
+    const nlohmann::json& get_desc() const;
+private:
+    const nlohmann::json& m_var_desc;
 };
 
 }  // namespace paddle

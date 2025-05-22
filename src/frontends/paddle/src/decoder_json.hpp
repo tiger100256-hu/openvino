@@ -23,11 +23,11 @@ namespace ov {
 namespace frontend {
 namespace paddle {
 
-ov::element::Type get_ov_type(const ::paddle::framework::proto::VarType_Type& type);
+ov::element::Type get_ov_type(const std::string& type);
 
-class DecoderProto : public paddle::DecoderBase {
+class DecoderJson : public paddle::DecoderBase {
 public:
-    explicit DecoderProto(const std::shared_ptr<ProtoOpPlace>& op) : op_place(op) {}
+    explicit DecoderJson(const std::shared_ptr<JsonOpPlace>& op) : op_place(op) {}
 
     ov::Any get_attribute(const std::string& name) const override;
 
@@ -59,7 +59,22 @@ public:
 
 private:
     std::vector<::paddle::framework::proto::OpDesc_Attr> decode_attribute_helper(const std::string& name) const;
-    std::weak_ptr<ProtoOpPlace> op_place;
+    std::weak_ptr<JsonOpPlace> op_place;
+
+    template<typename T>
+    T decode_simple_attr_value(const nlohmann::json& json) {
+        return json.at("D") template get<T>();
+    };
+
+    std::vecotr<T> decode_vector_attrs_value(const nlohmann::json& attrs) {
+        std::vecotr<T> result;
+        for(auto& attr : attrs) {
+            T attr_value = attr.at("D").template get<T>();
+            result.push_back(std::move(attr_value));
+        }
+        return result;
+    };
+
 
     const std::shared_ptr<ProtoOpPlace> get_place() const {
         auto place = op_place.lock();
