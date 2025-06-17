@@ -1,0 +1,149 @@
+namespace ov {
+namespace frontend {
+namespace paddle {
+namespace json {
+void decodeRegion(nlohmann::json& json, Region& region) {
+    region.name = json.at("#").template get<std::string>();
+    auto& blocksJson = json.at("blocks");
+    for (auto& blockJson : blocksJson) {
+        Block newBlock;
+        decodeBlock(blockJson, newBlock);
+        region.blocks.push_back(std::move(newBlock));
+    }
+}
+void decodeBlock(nlohmann::json& json, Block& block) {
+    block.name = json.at("#").template get<std::string>();
+    block.args = json.at("args").dump(); // save it, maybe need in future
+    auto& opsJson = json.at("ops");
+    for (auto& opJson : opsJson) {
+        OP newOp;
+        decodeOP(opJson, newOp);
+        block.ops.push_back(std::move(newOp));
+    }
+}
+void decodeOP(nlohmann::json& json, OP& op) {
+    op.type = json.at("#").template get<std::string>();
+    if (op.type == "p") {
+        decodeConst(json, op);
+    } else {
+        auto& inputsJson = op.at("I");
+        for (auto& inputJson : inputsJson) {
+            auto inputId = inputJson.at("%").template get<uint64_t>();
+            op.inputIds.push_back(inputId);
+        }
+        // op.attrs = json.at("A").dump(); // decode in decode_json.cpp
+    }
+    // op.outAttrs = json.at("OA").dump();// save it, maybe need in future
+    decodeOutPorts(json, op);
+    op.json_data = json;
+}
+void decodeConst(nlohmann::json& json, OP& op) {
+    auto& attrJson = json.at("A");
+    op.is_distributed = (attrJson.at(0).template get<int32_t>() != 0);
+    op.is_parameter = (attrJson.at(1).template get<int32_t>() != 0);
+    op.need_clip = (attrJson.at(2).template get<int32_t>() != 0);
+    op.name = attrJson.at(3).template get<std::string();
+    op.distAttrs = json.at("DA").dump();// save it, maybe need in future
+    op.quantAttrs = json.at("QA").dump();// save it, maybe need in future
+}
+void decodeOutPorts(nlohmann::json& json, OP& op) {
+    auto& outPortsJson = json.at("O");
+    for (auto& outPortJson : outPortsJson) {
+        Port newPort;
+        decodePort(outPortJson, newPort);
+        newPort.json_data = outPortJson;
+        op.outputPorts.push_back(std::move(newPort));
+    }
+}
+void decodePort(nlohmann::json& json, Port& port) {
+    port.id = json.at("%").template get<uint64_t>();
+    auto& typeTypeJson  = json.at("TT");
+    port.type = typeTypeJson.at("#").template get<std::string>();
+    auto& data = typeTypeJson.at("D");
+    auto precisionString = data.at(1).at("#").template get<std::string>();
+    size_t pos = precisonString.find('.');
+    if (pos != std::string::npos) {
+        precisionString = precisionString.substr(pos + 1);
+    }
+    port.precision = convertFromStringToType(precisionString);
+    port.shapes = data.at(1).template get<std::vector<int64_t>>();
+    port.layout = data.at(2).template get<std::string()>();
+    port.lod = data.at(3).template get<std::vector<std::vector<size_t>>>(); // save it, maybe need in future
+    port.offset = data.at(4).template get<size_t>();// save it, maybe need in future
+}
+TypeType convertFromStringToType(std::string type) {
+  const static std::map<std::string, TypeType> map = {
+      {"t_undefined", UNDEFINED},
+      {"t_bf16", BF16},
+      {"t_f16", F16},
+      {"t_f32", F32},
+      {"t_f64", F64},
+      {"t_i8", I8},
+      {"t_ui8", UI8},
+      {"t_i16", I16},
+      {"t_i32", I32},
+      {"t_i64", I64},
+      {"t_index", INDEX},
+      {"t_bool", BOOL},
+      {"t_c64", C64},
+      {"t_c128", C128},
+      {"t_f8e4m3fn", F8E4M3FN},
+      {"t_f8e5m2", F8E5M2},
+      {"t_dtensor", DTENSOR},
+      {"t_vec", VEC}
+  };
+  auto iter = map.find(type);
+  if (iter != map.end) {
+     return  iter->second;
+  } else {
+     return UNDEFINED;
+  }
+}
+ov::Any decode_vector_attrs(const nlohmann::json& attrs) {
+    for(auto& attr : attrs) {
+        std::string attr_type = attr.at("#").template get<std::string>();
+        auto pos = attr_type.find(".");
+        attr_type = attr_type.substr(pos + 1);
+        if (attr_type  == "a_i32") {
+            return ov::Any(DecoderJson::decode_vector_attrs_value<int32_t>(attrs));
+        } else if (attr_type  == "a_i64") {
+            return ov::Any(DecoderJson::decode_vector_attrs_value<int64_t>(attrs));
+        } else if (attr_type  == "a_bool") {
+            return ov::Any(DecoderJson::decode_vector_attrs_value<bool>(attrs));
+        } else if (attr_type  == "a_str") {
+            return ov::Any(DecoderJson::decode_vector_attrs_value<std::string>(attrs));
+        } else if (attr_type  == "a_f32") {
+            return ov::Any(DecoderJson::decode_vector_attrs_value<float>(attrs));
+        } else {
+            FRONT_END_GENERAL_CHECK(false, "unsupport vector attr type:", attr_type);
+            break;
+        }
+    }
+    return {};
+}
+
+ov::Any decode_attr(const nlohmann::json& attr) {
+    std::string attr_type = attr.at("#").template get<std::string>();
+    auto pos = attr_type.find(".");
+    attr_type = attr_type.substr(pos + 1);
+    if (attr_type  == "a_i32") {
+        return ov::Any(DecoderJson::decode_simple_attr_value<int32_t>(attr));
+    } else if (attr_type  == "a_i64") {
+        return ov::Any(DecoderJson::decode_simple_attr_value<int64_t>(attr));
+    } else if (attr_type  == "a_bool") {
+        return ov::Any(DecoderJson::decode_simple_attr_value<bool>(attr));
+    } else if (attr_type  == "a_str") {
+        return ov::Any(DecoderJson::decode_simple_attr_value<std::string>(attr));
+    } else if (attr_type  == "a_f32") {
+        return ov::Any(DecoderJson::decode_simple_attr_value<float>(attr));
+    } else if (attr_type  == "a_array") {
+        return ov::Any(decode_vector_attrs(attr));
+    }  else {
+        FRONT_END_GENERAL_CHECK(false, "unsupport attr type:", attr_type);
+    }
+    return {};
+}
+}  // namespace json
+}  // namespace paddle
+}  // namespace frontend
+}  // namespace ov

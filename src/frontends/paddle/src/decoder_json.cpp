@@ -37,57 +37,13 @@ ov::element::Type get_ov_type(const ::paddle::framework::proto::VarType_Type& ty
     OPENVINO_ASSERT(it != type_map.end(), "Cannot convert PDPD type to ov::element::Type");
     return it->second;
 }
-ov::Any decode_attr(const nlohmann::json& attr) {
-    std::string attr_type = attr.at("#").template get<std::string>();
-    auto pos = attr_type.find(".");
-    attr_type = attr_type.substr(pos + 1);
-    if (attr_type  == "a_i32") {
-        return ov::Any(decode_simple_attr_value<int32_t>(attr));
-    } else if (attr_type  == "a_i64") {
-        return ov::Any(decode_simple_attr_value<int64_t>(attr));
-    } else if (attr_type  == "a_bool") {
-        return ov::Any(decode_simple_attr_value<bool>(attr));
-    } else if (attr_type  == "a_str") {
-        return ov::Any(decode_simple_attr_value<std::string>(attr));
-    } else if (attr_type  == "a_f32") {
-        return ov::Any(decode_simple_attr_value<float>(attr));
-    } else if (attr_type  == "a_array") {
-        return ov::Any(decode_vector_attrs(attr));
-    }  else {
-        FRONT_END_GENERAL_CHECK(false, "unsupport attr type:", attr_type");
-    }
-    return {};
-}
-
-ov::Any decode_vector_attrs(const nlohmann::json& attrs) {
-    for(auto& attr : attrs) {
-        std::string attr_type = attr.at("#").template get<std::string>();
-        auto pos = attr_type.find(".");
-        attr_type = attr_type.substr(pos + 1);
-        if (attr_type  == "a_i32") {
-            return ov::Any(decode_vector_attrs_value<int32_t>(attrs));
-        } else if (attr_type  == "a_i64") {
-            return ov::Any(decode_vector_attrs_value<int64_t>(attrs));
-        } else if (attr_type  == "a_bool") {
-            return ov::Any(decode_vector_attrs_value<bool>(attrs));
-        } else if (attr_type  == "a_str") {
-            return ov::Any(decode_vector_attrs_value<std::string>(attrs));
-        } else if (attr_type  == "a_f32") {
-            return ov::Any(decode_vector_attrs_value<float>(attrs));
-        } else {
-            FRONT_END_GENERAL_CHECK(false, "unsupport vector attr type:", attr_type");
-            break;
-        }
-    }
-    return {};
-}
 
 
 ov::Any DecoderJson::get_attribute(const std::string& name) const {
-    auto& m_op_desc = op_place.get_desc();
+    auto& m_op_desc = op_place.lock()->get_desc();
     auto& attrs = m_op_desc.at("A");
     for (auto& attr : attrs) {
-        std::string attr_name = attr.at("N")template get<std::string>();
+        std::string attr_name = attr.at("N").template get<std::string>();
         if (attr_name == name) {
             return decode_attr(attr);
         }
@@ -116,7 +72,7 @@ ov::Any DecoderJson::convert_attribute(const Any& data, const std::type_info& ty
 
 std::vector<paddle::OutPortName> DecoderJson::get_output_names() const {
     std::vector<std::string> output_names;
-    auto& m_op_desc = op_place.get_desc();
+    auto& m_op_desc = op_place.lock()->get_desc();
     auto& outputs = m_op_desc.at("O");
     for (const auto& output : outputs) {
         auto portName = output.at("#").template get<uint32_t>();
@@ -159,7 +115,7 @@ size_t DecoderJson::get_output_size(const std::string& port_name) const {
 
 size_t DecoderJson::get_output_size() const {
     size_t res = 0;
-    auto& m_op_desc = op_place.get_desc();
+    auto& m_op_desc = op_place.lock()->get_desc();
     auto& outputs = m_op_desc.at("O");
     for (const auto& output : outputs) {
         res++;
@@ -169,12 +125,8 @@ size_t DecoderJson::get_output_size() const {
 
 std::map<std::string, std::vector<ov::element::Type>> DecoderJson::get_output_type_map() const {
     std::map<std::string, std::vector<ov::element::Type>> output_types;
-    auto& m_op_desc = op_place.get_desc();
+    auto& m_op_desc = op_place.lock()->get_desc();
     auto& outputs = m_op_desc.at("O");
-    for (const auto& output : outputs) {
-        res++;
-    }
-
     for (const auto& out_port_pair : get_place()->get_output_ports()) {
         for (const auto& p_place : out_port_pair.second) {
             output_types[out_port_pair.first].push_back(p_place->get_target_tensor_paddle()->get_element_type());

@@ -6,6 +6,7 @@
 
 #include "openvino/frontend/extension/telemetry.hpp"
 #include "openvino/frontend/paddle/frontend.hpp"
+#include <nlohmann/json.hpp>
 
 namespace ov {
 namespace frontend {

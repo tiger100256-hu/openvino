@@ -41,13 +41,14 @@ ProtoOpPlace::ProtoOpPlace(const ov::frontend::InputModel& input_model, const ::
     : ProtoOpPlace(input_model, op_desc, {}) {}
 
 JsonOpPlace::JsonOpPlace(const ov::frontend::InputModel& input_model,
-                 const nlohmann::json& op_desc,
+                 const json::OP& op,
                  const std::vector<std::string>& names)
     : BaseOpPlace(input_model, names),
-      m_op_desc(op_desc) {}
+      m_op(op) {}
 
-JsonOpPlace::JsonOpPlace(const ov::frontend::InputModel& input_model, nlohmann::json& op_desc)
-    : JsonOpPlace(input_model, op_desc, {}) {}
+JsonOpPlace::JsonOpPlace(const ov::frontend::InputModel& input_model, const json::OP& op)
+    : BaseOpPlace(input_model, {}),
+      m_op(op) {}
 
 const std::map<std::string, std::vector<std::shared_ptr<OutPortPlace>>>& BaseOpPlace::get_output_ports() const {
     return m_output_ports;
@@ -239,14 +240,14 @@ ProtoTensorPlace::ProtoTensorPlace(const ov::frontend::InputModel& input_model,
 }
 
 ProtoTensorPlace::ProtoTensorPlace(const ov::frontend::InputModel& input_model,
-                         const nlohmann::json& var_desc)
+                         const ::paddle::framework::proto::VarDesc& var_desc)
     : ProtoTensorPlace(input_model, {var_desc.name()}, var_desc) {}
 
 JsonTensorPlace::JsonTensorPlace(const ov::frontend::InputModel& input_model,
                          const std::vector<std::string>& names,
-                         const nlohmann::json& var_desc)
+                         const json::Port& port)
     : BaseTensorPlace(input_model, names),
-      m_var_desc(var_desc) {
+      m_port(port) {
     // const auto& var_type = var_desc.type();
     // if (var_type.type() == ::paddle::framework::proto::VarType::LOD_TENSOR) {
     //     const auto& tensor_desc = var_type.lod_tensor().tensor();
@@ -256,9 +257,8 @@ JsonTensorPlace::JsonTensorPlace(const ov::frontend::InputModel& input_model,
 }
 
 JsonTensorPlace::JsonTensorPlace(const ov::frontend::InputModel& input_model,
-                         const ::paddle::framework::proto::VarDesc& var_desc)
-    : JsonTensorPlace(input_model, {}, var_desc) {}
-
+        const json::Port& port)
+    : JsonTensorPlace(input_model, {}, port) {}
 
 std::vector<Place::Ptr> BaseTensorPlace::get_consuming_ports() const {
     std::vector<Place::Ptr> consuming_ports;

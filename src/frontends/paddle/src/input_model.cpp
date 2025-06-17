@@ -667,73 +667,58 @@ private:
 };
 
 void InputModel::JsonInputModelImpl::load_places() {
-    const int cnt_of_blocks = m_fw_ptr->blocks_size();
+    auto& graph = m_fw_ptr->graph;
+    const int cnt_of_regions = graph.regions.size();
     const auto& blocks = m_fw_ptr->blocks();
     std::map<std::string, uint64_t> op_statistics;
-
+    uint32_t cnt_of_blocks = 0;
+    for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
+        auto& blocks = graph.regions[region_idx].blocks;
+        cnt_of_blocks += blocks.size();
+    }
     m_op_places.resize(cnt_of_blocks);
+    uint32_t index = 0;
+    for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
+       auto& blocks = graph.regions[region_idx].blocks;
+       for (int block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+           const auto& block = blocks[block_idx];
+           for (const auto& op : block.ops) {
+               auto op_json = op.json_data;
+               auto op_place = std::make_shared<JsonOpPlace>(m_input_model, op);
+               op_place->set_decoder(std::make_shared<DecoderJson>(op_place));
+               if (m_telemetry) {
+                   op_statistics[op.type]++;
+               }
+               m_op_places[index].push_back(op_place);
+               for (const auto& output : op.outputs) {
+                   auto out_port = std::make_shared<OutPortPlace>(m_input_model);
+                   m_var_places[out_port.id] = std::make_shared<JsonTensorPlace>(m_input_model, out_port.json_data);
+                   if (op.type() == "data") {
+                       m_inputs.push_back(m_var_places[out_port.id]);
+                   } else if (op.type() == "fetch") {
+                       m_outputs.push_back(m_var_places[out_port.id]);
+                   }
+                   // connect out_port and tensor
+                   m_var_places[out_port.id]->add_producing_port(out_port);
+                   out_port->set_target_tensor(m_var_places[output.id]);
+                   // connect out_port and op
+                   op_place->add_out_port(out_port, std::to_string(out_port.id));
+                   out_port->set_op(op_place);
+               }
 
-    for (int block_idx = 0; block_idx < cnt_of_blocks; block_idx++) {
-        const auto& block = blocks[block_idx];
+               for (const auto& inputId : op.inputsIds) {
+                   auto in_port = std::make_shared<InPortPlace>(m_input_model);
 
-        for (const auto& var : block.vars()) {
-            m_var_places[var.name()] = std::make_shared<TensorPlace>(m_input_model, var);
-        }
+                   // connect in_port and tensor
+                   const auto& tensor = m_var_places.at(inputId);
+                   tensor->add_consuming_port(in_port);
+                   in_port->set_source_tensor(tensor);
 
-        for (const auto& op : block.ops()) {
-            auto op_place = std::make_shared<OpPlace>(m_input_model, op);
-            op_place->set_decoder(std::make_shared<DecoderProto>(op_place));
-
-            if (m_telemetry) {
-                op_statistics[op.type()]++;
-            }
-
-            m_op_places[block_idx].push_back(op_place);
-
-            for (const auto& output : op.outputs()) {
-                for (const auto& var_name : output.arguments()) {
-                    auto out_port = std::make_shared<OutPortPlace>(m_input_model);
-
-                    // connect out_port and tensor
-                    const auto& tensor = m_var_places.at(var_name);
-                    tensor->add_producing_port(out_port);
-                    out_port->set_target_tensor(tensor);
-
-                    // connect out_port and op
-                    op_place->add_out_port(out_port, output.parameter());
-                    out_port->set_op(op_place);
-                }
-            }
-
-            for (const auto& input : op.inputs()) {
-                for (const auto& var_name : input.arguments()) {
-                    auto in_port = std::make_shared<InPortPlace>(m_input_model);
-
-                    // connect in_port and tensor
-                    const auto& tensor = m_var_places.at(var_name);
-                    tensor->add_consuming_port(in_port);
-                    in_port->set_source_tensor(tensor);
-
-                    // connect in_port and op
-                    op_place->add_in_port(in_port, input.parameter());
-                    in_port->set_op(op_place);
-                }
-            }
-
-            // Determine outputs and inputs
-            if (op.type() == "feed") {
-                const auto& place = op_place->get_output_port_paddle("Out", 0);
-                const auto& var_place = std::dynamic_pointer_cast<TensorPlace>(place->get_target_tensor_paddle());
-                const auto& tensor_desc = var_place->get_desc().type().lod_tensor().tensor();
-                const auto& dims = tensor_desc.dims();
-
-                var_place->set_element_type(get_ov_type(tensor_desc.data_type()));
-                var_place->set_partial_shape(PartialShape(std::vector<Dimension>(dims.begin(), dims.end())));
-                m_inputs.push_back(var_place);
-            } else if (op.type() == "fetch") {
-                auto place = op_place->get_input_port_paddle("X", 0);
-                m_outputs.push_back(place->get_source_tensor_paddle());
-            }
+                   // connect in_port and op
+                   op_place->add_in_port(in_port, std::to_string(inputId));
+                   in_port->set_op(op_place);
+               }
+           }
         }
     }
     if (m_telemetry) {
@@ -797,12 +782,12 @@ void InputModel::JsonInputModelImpl::load_consts(const std::basic_string<T>& fol
     for (const auto& item : m_var_places) {
         const auto& var_desc = item.second->get_desc();
         const auto& name = item.first;
-        if (ov::util::ends_with(name, std::string{"feed"}) || ov::util::ends_with(name, std::string{"fetch"}))
+        if (ov::util::ends_with(name, std::string{"data"}) || ov::util::ends_with(name, std::string{"fetch"}))
             continue;
         if (!var_desc.persistable())
             continue;
 
-        FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
+        // FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
         const auto& tensor = var_desc.type().lod_tensor().tensor();
         Shape shape(tensor.dims().cbegin(), tensor.dims().cend());
         const auto& type = get_ov_type(tensor.data_type());
@@ -845,14 +830,14 @@ void InputModel::JsonInputModelImpl::load_consts(std::istream* weight_stream) {
     for (const auto& item : m_var_places) {
         const auto& var_desc = item.second->get_desc();
         const auto& name = item.first;
-        if (ov::util::ends_with(name, std::string{"feed"}) || ov::util::ends_with(name, std::string{"fetch"}))
+        if (ov::util::ends_with(name, std::string{"data"}) || ov::util::ends_with(name, std::string{"fetch"}))
             continue;
 
         // var_desc.persistable() is used to mark node const value or not.
         if (!var_desc.persistable())
             continue;
 
-        FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
+        // FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
         FRONT_END_GENERAL_CHECK(weight_stream != nullptr && weight_stream->peek() != EOF,
                                 "PaddlePaddle *.pdiparams format weight file doesn't exist!");
         /*
@@ -911,81 +896,13 @@ public:
         auto& regionsJson = program.at("regions");
         for (auto& regionJson : regionsJson) {
             Region newRegion;
-            decodeRegion(regionJson, newRegion);
+            json::decodeRegion(regionJson, newRegion);
             m_graph.regions.push_back(std::move(newRegion));
         }
     }
     int64_t version();
     Graph m_graph;
 private:
-    void decodeRegion(nlohmann::json& json, Region& region) {
-        region.name = json.at("#").template get<std::string>();
-        auto& blocksJson = json.at("blocks");
-        for (auto& blockJson : blocksJson) {
-            Block newBlock;
-            decodeBlock(blockJson, newBlock);
-            region.blocks.push_back(std::move(newBlock));
-        }
-    }
-    void decodeBlock(nlohmann::json& json, Block& block) {
-        block.name = json.at("#").template get<std::string>();
-        block.args = json.at("args").dump(); // save it, maybe need in future
-        auto& opsJson = json.at("ops");
-        for (auto& opJson : opsJson) {
-            OP newOp;
-            decodeOP(opJson, newOp);
-            block.ops.push_back(std::move(newOp));
-        }
-    }
-    void decodeOP(nlohmann::json& json, OP& op) {
-        op.type = op.at("#").template get<std::string>();
-        if (op.type == "p") {
-            decodeConst(json, op);
-        } else {
-            auto& inputsJson = op.at("I");
-            for (auto& inputJson : inputsJson) {
-                auto inputId = inputJson.at("%").template get<uint64_t>();
-                op.inputIds.push_back(inputId);
-            }
-            op.attrs = json.at("A").dump();
-        }
-        op.outAttrs = json.at("OA").dump();// save it, maybe need in future
-        decodeOutPorts(json, op);
-    }
-    void decodeConst(nlohmann::json& json, OP& op) {
-        auto& attrJson = json.at("A");
-        op.is_distributed = (attrJson.at(0).template get<int32_t>() != 0);
-        op.is_parameter = (attrJson.at(1).template get<int32_t>() != 0);
-        op.need_clip = (attrJson.at(2).template get<int32_t>() != 0);
-        op.name = attrJson.at(3).template get<std::string();
-        op.distAttrs = json.at("DA").dump();// save it, maybe need in future
-        op.quantAttrs = json.at("QA").dump();// save it, maybe need in future
-    }
-    void decodeOutPorts(nlohmann::json& json, OP& op) {
-        auto& outPortsJson = json.at("O");
-        for (auto& outPortJson : outPortsJson) {
-            Port newPort;
-            decodePort(blockJson, newPort);
-            op.outputPorts.push_back(std::move(newPort));
-        }
-    }
-    void decodePort(nlohmann::json& json, Port& port) {
-        port.id = json.at("%").template get<uint64_t>();
-        auto& typeTypeJson  = json.at("TT");
-        port.type = typeTypeJson.at("#").template get<std::string>();
-        auto& data = typeTypeJson.at("D");
-        auto precisionString = data.at(1).at("#").template get<std::string>();
-        size_t pos = precisonString.find('.');
-        if (pos != std::string::npos) {
-            precisionString = precisionString.substr(pos + 1);
-        }
-        port.precision = convertFromStringToType(precisionString);
-        port.shapes = data.at(1).template get<std::vector<int64_t>>();
-        port.layout = data.at(2).template get<std::string()>();
-        port.lod = data.at(3).template get<std::vector<std::vector<size_t>>>(); // save it, maybe need in future
-        port.offset = data.at(4).template get<size_t>();// save it, maybe need in future
-    }
-}
 
 /*
     1. path: is a directory, compatible with old PaddlePaddle API.
@@ -995,7 +912,6 @@ private:
              read *.pdmodel as model stream.
              read *.pdiparam as weight stream.
 */
-template <typename T>
 InputModel::JsonInputModelImpl::JsonInputModelImpl(const std::basic_string<T>& path,
                                            const InputModel& input_model,
                                            const std::shared_ptr<TelemetryExtension>& telemetry)
@@ -1012,9 +928,10 @@ InputModel::JsonInputModelImpl::JsonInputModelImpl(const std::basic_string<T>& p
     FRONT_END_GENERAL_CHECK(m_fw_ptr->ParseFromIstream(&pb_stream), "Model can't be parsed");
     load_places();
     load_consts(&weights_stream);
-    create_temp_consts();
+    //create_temp_consts();
 }
 
+/*
 void InputModel::JsonInputModelImpl::create_temp_consts() {
     for (const auto& item : m_var_places) {
         const auto& var_place = item.second;
@@ -1066,6 +983,7 @@ void InputModel::JsonInputModelImpl::create_temp_consts() {
         }
     }
 }
+*/
 
 InputModel::JsonInputModelImpl::JsonInputModelImpl(const std::vector<std::istream*>& streams,
                                            const InputModel& input_model,

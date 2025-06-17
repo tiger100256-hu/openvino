@@ -56,30 +56,13 @@ public:
         const std::function<Output<Node>(const std::string&, size_t)>& func) const;
 
     int64_t get_version() const override;
-
 private:
-    std::vector<::paddle::framework::proto::OpDesc_Attr> decode_attribute_helper(const std::string& name) const;
     std::weak_ptr<JsonOpPlace> op_place;
 
-    template<typename T>
-    T decode_simple_attr_value(const nlohmann::json& json) {
-        return json.at("D") template get<T>();
-    };
-
-    std::vecotr<T> decode_vector_attrs_value(const nlohmann::json& attrs) {
-        std::vecotr<T> result;
-        for(auto& attr : attrs) {
-            T attr_value = attr.at("D").template get<T>();
-            result.push_back(std::move(attr_value));
-        }
-        return result;
-    };
-
-
-    const std::shared_ptr<ProtoOpPlace> get_place() const {
+    const std::shared_ptr<JsonOpPlace> get_place() const {
         auto place = op_place.lock();
         if (!place)
-            FRONT_END_THROW("This proto decoder contains empty op place.");
+            FRONT_END_THROW("This json decoder contains empty op place.");
         return place;
     }
 };
