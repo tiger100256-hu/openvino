@@ -14,7 +14,7 @@ class FrameworkNode : public ov::op::util::FrameworkNode {
 public:
     OPENVINO_OP("FrameworkNode", "util", ov::op::util::FrameworkNode);
 
-    FrameworkNode(const std::shared_ptr<DecoderProto>& decoder,
+    FrameworkNode(const std::shared_ptr<paddle::DecoderBase>& decoder,
                   const OutputVector& inputs,
                   const std::vector<std::string>& inputs_names)
         : ov::op::util::FrameworkNode(inputs, decoder->get_output_size()),
@@ -37,7 +37,7 @@ public:
         return m_decoder->get_op_type();
     }
 
-    const std::shared_ptr<DecoderProto> get_decoder() const {
+    const std::shared_ptr<DecoderBase> get_decoder() const {
         return m_decoder;
     }
 
@@ -46,7 +46,7 @@ public:
     std::map<std::string, OutputVector> return_named_outputs();
 
 private:
-    const std::shared_ptr<DecoderProto> m_decoder;
+    const std::shared_ptr<DecoderBase> m_decoder;
     std::vector<std::string> m_inputs_names;
 };
 }  // namespace paddle

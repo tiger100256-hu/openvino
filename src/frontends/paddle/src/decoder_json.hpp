@@ -23,8 +23,6 @@ namespace ov {
 namespace frontend {
 namespace paddle {
 
-ov::element::Type get_ov_type(const std::string& type);
-
 class DecoderJson : public paddle::DecoderBase {
 public:
     explicit DecoderJson(const std::shared_ptr<JsonOpPlace>& op) : op_place(op) {}
@@ -45,15 +43,15 @@ public:
 
     std::string get_op_type() const override;
 
-    std::map<std::string, std::vector<ov::element::Type>> get_output_type_map() const;
+    std::map<std::string, std::vector<ov::element::Type>> get_output_type_map() const override;
     std::vector<std::pair<ov::element::Type, ov::PartialShape>> get_output_port_infos(
         const std::string& port_name) const override;
 
     std::map<std::string, OutputVector> map_for_each_input(
-        const std::function<Output<Node>(const std::string&, size_t)>& func) const;
+        const std::function<Output<Node>(const std::string&, size_t)>& func) const override;
 
     std::map<std::string, OutputVector> map_for_each_output(
-        const std::function<Output<Node>(const std::string&, size_t)>& func) const;
+        const std::function<Output<Node>(const std::string&, size_t)>& func) const override;
 
     int64_t get_version() const override;
 private:

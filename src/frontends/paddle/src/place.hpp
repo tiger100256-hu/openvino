@@ -6,6 +6,7 @@
 
 #include "input_model.hpp"
 #include "openvino/frontend/manager.hpp"
+#include "json_data.hpp"
 
 namespace paddle {
 namespace framework {

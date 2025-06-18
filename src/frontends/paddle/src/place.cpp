@@ -75,8 +75,8 @@ const ::paddle::framework::proto::OpDesc& ProtoOpPlace::get_desc() const {
     return m_op_desc;
 }
 
-const nlohmann::json& JsonOpPlace::get_desc() const {
-    return m_op_desc;
+const json::OP& JsonOpPlace::get_op() const {
+    return m_op;
 }
 
 const std::shared_ptr<DecoderBase> BaseOpPlace::get_decoder() const {
@@ -292,8 +292,8 @@ const ::paddle::framework::proto::VarDesc& ProtoTensorPlace::get_desc() const {
     return m_var_desc;
 }
 
-const nlohmann::json& JsonTensorPlace::get_desc() const {
-    return m_var_desc;
+const json::Port& JsonTensorPlace::get_port() const {
+    return m_port;
 }
 
 std::vector<Place::Ptr> BaseTensorPlace::get_consuming_operations() const {

@@ -59,6 +59,14 @@ public:
     /// \brief Get the type of the operation
     virtual std::string get_op_type() const = 0;
 
+    virtual std::map<std::string, std::vector<ov::element::Type>> get_output_type_map() const = 0;
+    virtual std::map<std::string, OutputVector> map_for_each_input(
+        const std::function<Output<Node>(const std::string&, size_t)>& func) const = 0;
+
+    virtual std::map<std::string, OutputVector> map_for_each_output(
+        const std::function<Output<Node>(const std::string&, size_t)>& func) const = 0;
+
+
     /// \brief Destructor
     virtual ~DecoderBase();
 };

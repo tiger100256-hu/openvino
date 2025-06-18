@@ -18,8 +18,8 @@ namespace ov {
 namespace frontend {
 namespace paddle {
 
-class OpPlace;
-class TensorPlace;
+class BaseOpPlace;
+class BaseTensorPlace;
 
 class PADDLE_FRONTEND_API FrontEnd : public ov::frontend::FrontEnd {
 public:
@@ -83,14 +83,14 @@ protected:
     static std::vector<std::shared_ptr<Model>> convert_each_node(
         const std::shared_ptr<InputModel>& frontend_model,
         std::function<std::map<std::string, OutputVector>(const std::map<std::string, Output<Node>>&,
-                                                          const std::shared_ptr<OpPlace>&)> func);
+                                                          const std::shared_ptr<BaseOpPlace>&)> func);
     static std::map<int32_t, std::shared_ptr<Model>> convert_each_node_recursive(
         const std::shared_ptr<InputModel>& frontend_model,
         const int32_t block_idx,
-        const std::vector<std::shared_ptr<TensorPlace>>& input_tensors,
-        const std::vector<std::shared_ptr<TensorPlace>>& output_tensors,
+        const std::vector<std::shared_ptr<BaseTensorPlace>>& input_tensors,
+        const std::vector<std::shared_ptr<BaseTensorPlace>>& output_tensors,
         std::function<std::map<std::string, OutputVector>(const std::map<std::string, Output<Node>>&,
-                                                          const std::shared_ptr<OpPlace>&)> func);
+                                                          const std::shared_ptr<BaseOpPlace>&)> func);
 
     TelemetryExtension::Ptr m_telemetry;
     std::vector<DecoderTransformationExtension::Ptr> m_transformation_extensions;

@@ -6,14 +6,134 @@
 
 #include "openvino/frontend/extension/telemetry.hpp"
 #include "openvino/frontend/paddle/frontend.hpp"
-#include <nlohmann/json.hpp>
+#include "paddle_utils.hpp"
+#include "openvino/util/common_util.hpp"
+#include "openvino/util/file_util.hpp"
 
 namespace ov {
 namespace frontend {
 namespace paddle {
 
-class OpPlace;
-class TensorPlace;
+class BaseOpPlace;
+class BaseTensorPlace;
+class BaseInputModelImpl {
+public:
+    virtual std::vector<Place::Ptr> get_inputs() const = 0;
+    virtual std::vector<Place::Ptr> get_outputs() const = 0;
+    virtual int64_t get_version() const = 0;
+    virtual Place::Ptr get_place_by_tensor_name(const std::string& tensorName) const = 0;
+    virtual void override_all_outputs(const std::vector<Place::Ptr>& outputs) = 0;
+    virtual void override_all_inputs(const std::vector<Place::Ptr>& inputs) = 0;
+    virtual void extract_subgraph(const std::vector<Place::Ptr>& inputs, const std::vector<Place::Ptr>& outputs) = 0;
+    virtual void set_default_shape(Place::Ptr place, const ov::Shape&) = 0;
+    virtual void set_partial_shape(Place::Ptr place, const ov::PartialShape&) = 0;
+    virtual ov::PartialShape get_partial_shape(Place::Ptr place) const = 0;
+    virtual void set_element_type(Place::Ptr place, const ov::element::Type&) = 0;
+    virtual ov::element::Type get_element_type(const Place::Ptr& place) const = 0;
+    virtual void set_tensor_value(Place::Ptr place, const void* value) = 0;
+    virtual std::vector<std::shared_ptr<BaseOpPlace>> get_op_places(const int32_t blck_idx) const = 0;
+    virtual std::map<std::string, std::shared_ptr<BaseTensorPlace>> get_var_places() const = 0;
+    virtual std::map<paddle::TensorName, Output<Node>> get_tensor_values() const = 0;
+};
+
+bool read_tensor(std::istream& is, char* data, size_t len);
+template <typename T>
+std::basic_string<T> get_const_path(const std::basic_string<T>& folder_with_weights, const std::string& name) {
+    return folder_with_weights + paddle::get_path_sep<T>() + name;
+}
+
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+template <>
+std::basic_string<wchar_t> get_const_path(const std::basic_string<wchar_t>& folder, const std::string& name) {
+    return folder + paddle::get_path_sep<wchar_t>() + ov::util::string_to_wstring(name);
+}
+#endif
+
+template <typename T>
+bool is_pdmodel(const std::basic_string<T>& path) {
+    std::string ext = ".pdmodel";
+    return ov::util::ends_with(path, ext);
+}
+
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+template <>
+bool is_pdmodel(const std::basic_string<wchar_t>& path) {
+    std::wstring ext = L".pdmodel";
+    return ov::util::ends_with(path, ext);
+}
+#endif
+
+template <typename T>
+std::basic_string<T> get_json_model_path(const std::basic_string<T>& path, std::ifstream* weights_stream) {
+    std::string model_file{path};
+    std::string ext = ".json";
+    if (ov::util::ends_with(model_file, ext)) {
+        std::string params_ext = ".pdiparams";
+        std::string weights_file{path};
+        weights_file.replace(weights_file.size() - ext.size(), ext.size(), params_ext);
+        weights_stream->open(weights_file, std::ios::binary);
+        // Don't throw error if file isn't opened
+        // It may mean that model don't have constants
+    } else {
+        model_file += paddle::get_path_sep<T>() + "__model__";
+    }
+    return model_file;
+}
+
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+template <>
+std::basic_string<wchar_t> get_json_model_path(const std::basic_string<wchar_t>& path, std::ifstream* weights_stream) {
+    std::wstring model_file{path};
+    std::wstring ext = L".json";
+    if (ov::util::ends_with(model_file, ext)) {
+        std::wstring params_ext = L".pdiparams";
+        std::wstring weights_file{path};
+        weights_file.replace(weights_file.size() - ext.size(), ext.size(), params_ext);
+        weights_stream->open(weights_file.c_str(), std::ios::binary);
+        // Don't throw error if file isn't opened
+        // It may mean that model don't have constants
+    } else {
+        model_file += paddle::get_path_sep<wchar_t>() + L"__model__";
+    }
+    return model_file;
+}
+#endif
+
+template <typename T>
+std::basic_string<T> get_model_path(const std::basic_string<T>& path, std::ifstream* weights_stream) {
+    std::string model_file{path};
+    std::string ext = ".pdmodel";
+    if (ov::util::ends_with(model_file, ext)) {
+        std::string params_ext = ".pdiparams";
+        std::string weights_file{path};
+        weights_file.replace(weights_file.size() - ext.size(), ext.size(), params_ext);
+        weights_stream->open(weights_file, std::ios::binary);
+        // Don't throw error if file isn't opened
+        // It may mean that model don't have constants
+    } else {
+        model_file += paddle::get_path_sep<T>() + "__model__";
+    }
+    return model_file;
+}
+
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+template <>
+std::basic_string<wchar_t> get_model_path(const std::basic_string<wchar_t>& path, std::ifstream* weights_stream) {
+    std::wstring model_file{path};
+    std::wstring ext = L".pdmodel";
+    if (ov::util::ends_with(model_file, ext)) {
+        std::wstring params_ext = L".pdiparams";
+        std::wstring weights_file{path};
+        weights_file.replace(weights_file.size() - ext.size(), ext.size(), params_ext);
+        weights_stream->open(weights_file.c_str(), std::ios::binary);
+        // Don't throw error if file isn't opened
+        // It may mean that model don't have constants
+    } else {
+        model_file += paddle::get_path_sep<wchar_t>() + L"__model__";
+    }
+    return model_file;
+}
+#endif
 
 class InputModel : public ov::frontend::InputModel {
 public:
@@ -39,14 +159,13 @@ public:
 
 private:
     friend class ov::frontend::paddle::FrontEnd;
-    class InputModelImpl;
-    std::shared_ptr<InputModelImpl> _impl;
+    std::shared_ptr<BaseInputModelImpl> _impl;
 
-    std::vector<std::shared_ptr<OpPlace>> get_op_places(const int32_t block_idx) const;
-    std::map<std::string, std::shared_ptr<TensorPlace>> get_var_places() const;
+    std::vector<std::shared_ptr<BaseOpPlace>> get_op_places(const int32_t block_idx) const;
+    std::map<std::string, std::shared_ptr<BaseTensorPlace>> get_var_places() const;
     std::map<std::string, Output<Node>> get_tensor_values() const;
 };
-
+std::shared_ptr<BaseTensorPlace> castToTensorPlace(const Place::Ptr& place);
 }  // namespace paddle
 }  // namespace frontend
 }  // namespace ov

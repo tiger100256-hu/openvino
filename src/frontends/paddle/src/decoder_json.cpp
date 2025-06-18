@@ -20,32 +20,13 @@ namespace paddle {
 
 using namespace ::paddle::framework;
 
-ov::element::Type get_ov_type(const ::paddle::framework::proto::VarType_Type& type) {
-    static const std::map<proto::VarType_Type, ov::element::Type> type_map{
-        {proto::VarType_Type::VarType_Type_BOOL, ov::element::boolean},
-        {proto::VarType_Type::VarType_Type_INT16, ov::element::i16},
-        {proto::VarType_Type::VarType_Type_INT32, ov::element::i32},
-        {proto::VarType_Type::VarType_Type_INT64, ov::element::i64},
-        {proto::VarType_Type::VarType_Type_FP16, ov::element::f16},
-        {proto::VarType_Type::VarType_Type_FP32, ov::element::f32},
-        {proto::VarType_Type::VarType_Type_FP64, ov::element::f64},
-        {proto::VarType_Type::VarType_Type_UINT8, ov::element::u8},
-        {proto::VarType_Type::VarType_Type_INT8, ov::element::i8},
-        {proto::VarType_Type::VarType_Type_BF16, ov::element::bf16}};
-
-    auto it = type_map.find(type);
-    OPENVINO_ASSERT(it != type_map.end(), "Cannot convert PDPD type to ov::element::Type");
-    return it->second;
-}
-
-
 ov::Any DecoderJson::get_attribute(const std::string& name) const {
-    auto& m_op_desc = op_place.lock()->get_desc();
-    auto& attrs = m_op_desc.at("A");
+    auto& op = op_place.lock()->get_op();
+    auto& attrs = op.json_data.at("A");
     for (auto& attr : attrs) {
         std::string attr_name = attr.at("N").template get<std::string>();
         if (attr_name == name) {
-            return decode_attr(attr);
+            return json::decode_attr(attr);
         }
     }
     return {};
@@ -72,8 +53,8 @@ ov::Any DecoderJson::convert_attribute(const Any& data, const std::type_info& ty
 
 std::vector<paddle::OutPortName> DecoderJson::get_output_names() const {
     std::vector<std::string> output_names;
-    auto& m_op_desc = op_place.lock()->get_desc();
-    auto& outputs = m_op_desc.at("O");
+    auto& op = op_place.lock()->get_op();
+    auto& outputs = op.json_data.at("O");
     for (const auto& output : outputs) {
         auto portName = output.at("#").template get<uint32_t>();
         output_names.push_back(std::to_string(portName));
@@ -114,52 +95,48 @@ size_t DecoderJson::get_output_size(const std::string& port_name) const {
 }
 
 size_t DecoderJson::get_output_size() const {
-    size_t res = 0;
-    auto& m_op_desc = op_place.lock()->get_desc();
-    auto& outputs = m_op_desc.at("O");
-    for (const auto& output : outputs) {
-        res++;
-    }
-    return res;
+    auto& op = get_place()->get_op();
+    return op.outputPorts.size();
 }
 
 std::map<std::string, std::vector<ov::element::Type>> DecoderJson::get_output_type_map() const {
+    auto& op = get_place()->get_op();
     std::map<std::string, std::vector<ov::element::Type>> output_types;
-    auto& m_op_desc = op_place.lock()->get_desc();
-    auto& outputs = m_op_desc.at("O");
-    for (const auto& out_port_pair : get_place()->get_output_ports()) {
-        for (const auto& p_place : out_port_pair.second) {
-            output_types[out_port_pair.first].push_back(p_place->get_target_tensor_paddle()->get_element_type());
-        }
+    for (const auto& outputport : op.outputPorts) {
+        output_types[std::to_string(outputport.id)].push_back(json::convert_to_ov_type(outputport.precision));
     }
     return output_types;
 }
 
 std::vector<std::pair<ov::element::Type, ov::PartialShape>> DecoderJson::get_output_port_infos(
     const std::string& port_name) const {
+    auto& op = get_place()->get_op();
     std::vector<std::pair<ov::element::Type, ov::PartialShape>> output_types;
-    for (const auto& out_port : get_place()->get_output_ports().at(port_name)) {
-        output_types.push_back({out_port->get_target_tensor_paddle()->get_element_type(),
-                                out_port->get_target_tensor_paddle()->get_partial_shape()});
+    for (const auto& outputport : op.outputPorts) {
+        if (port_name == std::to_string(outputport.id)) {
+                output_types.push_back({json::convert_to_ov_type(outputport.precision),
+                        ov::PartialShape(outputport.shapes)});
+                break;
+        }
     }
     return output_types;
 }
 
 ov::element::Type DecoderJson::get_out_port_type(const std::string& port_name) const {
-    std::vector<ov::element::Type> output_types;
-    for (const auto& out_port : get_place()->get_output_ports().at(port_name)) {
-        output_types.push_back(out_port->get_target_tensor_paddle()->get_element_type());
+    auto map = get_output_type_map();
+    auto iter = map.find(port_name);
+    if(iter != map.end()) {
+       return iter->second[0];
+    } else {
+       FRONT_END_GENERAL_CHECK(false, "get port precision failed", port_name);
+       return ov::element::undefined;
     }
-    FRONT_END_GENERAL_CHECK(!output_types.empty(), "Port has no tensors connected.");
-    FRONT_END_GENERAL_CHECK(std::equal(output_types.begin() + 1, output_types.end(), output_types.begin()),
-                            "Port has tensors with different types connected.");
-    return output_types[0];
 }
 
 std::string DecoderJson::get_op_type() const {
-    return get_place()->get_desc().type();
+    return get_place()->get_op().type;
 }
-
+/*
 std::vector<proto::OpDesc_Attr> DecoderJson::decode_attribute_helper(const std::string& name) const {
     std::vector<proto::OpDesc_Attr> attrs;
     for (const auto& attr : get_place()->get_desc().attrs()) {
@@ -194,15 +171,20 @@ inline std::map<std::string, OutputVector> map_for_each_input_impl(
     return res;
 }
 }  // namespace
+*/
 
 std::map<std::string, OutputVector> DecoderJson::map_for_each_input(
     const std::function<Output<Node>(const std::string&, size_t)>& func) const {
-    return map_for_each_input_impl(get_place()->get_desc().inputs(), func);
+    // return map_for_each_input_impl(get_place()->get_desc().inputs(), func);
+    FRONT_END_GENERAL_CHECK(false, "haven't implemented.");
+    return {};
 }
 
 std::map<std::string, OutputVector> DecoderJson::map_for_each_output(
     const std::function<Output<Node>(const std::string&, size_t)>& func) const {
-    return map_for_each_input_impl(get_place()->get_desc().outputs(), func);
+    // return map_for_each_input_impl(get_place()->get_desc().outputs(), func);
+    FRONT_END_GENERAL_CHECK(false, "haven't implemented.");
+    return {};
 }
 
 }  // namespace paddle
