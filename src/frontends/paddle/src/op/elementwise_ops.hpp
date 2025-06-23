@@ -16,8 +16,12 @@ template <typename T>
 NamedOutputs elementwise_ops(const NodeContext& node) {
     auto x = node.get_input("X");
     auto y = node.get_input("Y");
-
-    auto axis = node.get_attribute<int>("axis");
+    int axis = 0;
+    if (node.is_json_format()) {
+        axis = -1;
+    } else {
+        axis = node.get_attribute<int>("axis");
+    }
 
     PADDLE_OP_CHECK(node, x.get_partial_shape().rank().is_static(), "elementwise_ops: X rank must be static!");
     PADDLE_OP_CHECK(node, y.get_partial_shape().rank().is_static(), "elementwise_ops: Y rank must be static!");

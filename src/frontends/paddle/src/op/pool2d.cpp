@@ -63,7 +63,18 @@ NamedOutputs pool2d(const NodeContext& node) {
     auto pooling_type = node.get_attribute<std::string>("pooling_type", {});
     auto global_pooling = node.get_attribute<bool>("global_pooling");
     auto adaptive = node.get_attribute<bool>("adaptive");
-    auto kernel_shape = node.get_attribute<std::vector<int32_t>>("ksize");
+    std::vector<int32_t> kernel_shape;
+    if (node.is_json_format()) {
+        auto full_int_array = node.get_input("ksize");
+        auto ksize_op = full_int_array.get_node_shared_ptr();
+        auto ksize_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(ksize_op);
+        auto kernel_shape_64 = ksize_const->get_vector<int64_t>();
+        for (auto& value : kernel_shape_64) {
+            kernel_shape.push_back(value);
+        }
+    } else {
+        kernel_shape = node.get_attribute<std::vector<int32_t>>("ksize");
+    }
 
     auto rounding_type =
         node.get_attribute<bool>("ceil_mode", false) ? ov::op::RoundingType::CEIL : ov::op::RoundingType::FLOOR;

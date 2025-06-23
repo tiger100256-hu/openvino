@@ -66,7 +66,7 @@ void JsonInputModelImpl::load_places() {
                m_op_places[index].push_back(op_place);
                for (auto& output : op.outputPorts) {
                    auto it = usedInputIds.find(output.id);
-                   if (it == usedInputIds.end() && op.type != "fetch") {
+                   if (it == usedInputIds.end() ||  op.type == "fetch") {
                        continue;
                    }
                    output.used = true;
@@ -75,8 +75,6 @@ void JsonInputModelImpl::load_places() {
                    m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, output);
                    if (op.type == "data") {
                        m_inputs.push_back(m_var_places[port_name]);
-                   } else if (op.type == "fetch") {
-                       m_outputs.push_back(m_var_places[port_name]);
                    }
                    if (op.is_parameter) {
                        m_const_name_to_id_map[op.name] = port_name;
@@ -93,6 +91,9 @@ void JsonInputModelImpl::load_places() {
                    auto in_port = std::make_shared<InPortPlace>(m_input_model);
                    auto port_name = std::to_string(inputId);
 
+                   if (op.type == "fetch") {
+                       m_outputs.push_back(m_var_places[port_name]);
+                   }
                    // connect in_port and tensor
                    const auto& tensor = m_var_places.at(port_name);
                    tensor->add_consuming_port(in_port);

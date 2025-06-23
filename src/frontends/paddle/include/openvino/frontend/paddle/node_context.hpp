@@ -22,10 +22,11 @@ using NamedInputs = std::map<InPortName, OutputVector>;
 class NodeContext : public ov::frontend::NodeContext {
 public:
     using Ptr = std::shared_ptr<NodeContext>;
-    NodeContext(const std::shared_ptr<DecoderBase>& _decoder, const NamedInputs& _name_map)
+    NodeContext(const std::shared_ptr<DecoderBase>& _decoder, const NamedInputs& _name_map, bool _is_json = false)
         : ov::frontend::NodeContext(_decoder->get_op_type()),
           decoder(_decoder),
-          name_map(_name_map) {}
+          name_map(_name_map),
+          is_json(_is_json){}
 
     /// Detects if there is at least one input attached with a given name
     bool has_input(const std::string& name) const {
@@ -102,6 +103,10 @@ public:
         return decoder->get_version();
     }
 
+    bool is_json_format() const {
+        return is_json;
+    }
+
 private:
     ov::Any apply_additional_conversion_rules(const ov::Any& any, const std::type_info& type_info) const override {
         auto res = decoder->convert_attribute(any, type_info);
@@ -110,6 +115,7 @@ private:
 
     const std::shared_ptr<DecoderBase> decoder;
     const NamedInputs& name_map;
+    const bool is_json;
 };
 
 inline NamedOutputs NodeContext::default_single_output_mapping(

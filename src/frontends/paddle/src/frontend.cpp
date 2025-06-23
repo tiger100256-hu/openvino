@@ -81,6 +81,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"depthwise_conv2d_transpose", {}},
             {"dequantize_linear", {}},
             {"elementwise_add", {}},
+            {"add", {"X", "Y"}},
             {"elementwise_div", {}},
             {"elementwise_floordiv", {}},
             {"elementwise_mod", {}},
@@ -100,6 +101,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"fill_constant", {}},
             {"fill_constant_batch_size_like", {}},
             {"flatten_contiguous_range", {}},
+            {"flatten", {"X"}},
             {"flip", {}},
             {"floor", {}},
             {"gather", {}},
@@ -126,7 +128,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"logical_or", {}},
             {"logical_xor", {}},
             {"lookup_table_v2", {}},
-            {"matmul", {}},
+            {"matmul", {"X", "Y"}},
             {"matmul_v2", {}},
             {"max_pool2d_with_index", {}},
             {"max_pool3d_with_index", {}},
@@ -143,7 +145,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"partial_concat", {}},
             {"partial_sum", {}},
             {"pow", {}},
-            {"pool2d", {"X"}},
+            {"pool2d", {"X", "ksize"}},
             {"pool3d", {}},
             {"prior_box", {}},
             {"quantize_linear", {}},
@@ -267,7 +269,7 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
         NamedOutputs outputs;
         // In case the conversion function throws exception
         try {
-            outputs = creator_it->second(paddle::NodeContext(json_op_place->get_decoder(), named_inputs));
+            outputs = creator_it->second(paddle::NodeContext(json_op_place->get_decoder(), named_inputs, true));
         } catch (std::exception& ex) {
             FRONT_END_OP_CONVERSION_CHECK(false, "Fail to convert " + json_op_place->get_op().type + " Exception " + ex.what());
         }
@@ -411,6 +413,7 @@ std::vector<std::shared_ptr<ov::Model>> FrontEnd::convert_each_node(
         output_tensors.emplace_back(outp_place);
     }
     auto funcs = convert_each_node_recursive(model, 0, input_tensors, output_tensors, func);
+    std::cout << "convert_each_node_recursive finised" << std::endl;
     std::vector<std::shared_ptr<Model>> funcs_vec;
     for (auto&& item : funcs) {
         funcs_vec.emplace_back(item.second);
@@ -565,6 +568,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                         }
                         node->set_friendly_name(node_name);
                     }
+                    std::cout << "node_name:" << node->get_friendly_name() << std::endl;
                     auto output_name = get_output_name_by_op_type(op.type);
                     size_t idx = 0;
                     for (const auto& port : op.outputPorts) {
