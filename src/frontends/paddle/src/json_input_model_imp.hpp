@@ -59,7 +59,7 @@ public:
     FRONT_END_GENERAL_CHECK(m_fw_ptr->ParseFromIstream(pb_stream), "Model can't be parsed");
     load_places();
     load_consts(&weights_stream);
-    //create_temp_consts();
+    create_temp_consts();
     }
 
     JsonInputModelImpl(const std::vector<std::istream*>& streams,

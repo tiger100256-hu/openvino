@@ -39,28 +39,47 @@ void JsonInputModelImpl::load_places() {
     }
     m_op_places.resize(cnt_of_blocks);
     uint32_t index = 0;
+    // collect all used port
+    std::set<size_t> usedInputIds;
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
-       auto& blocks = graph.regions[region_idx].blocks;
-       for (int block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+        auto& blocks = graph.regions[region_idx].blocks;
+        for (int block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
            const auto& block = blocks[block_idx];
            for (const auto& op : block.ops) {
+                for (auto& inputId : op.inputIds) {
+                    usedInputIds.insert(inputId);
+                }
+           }
+        }
+    }
+    index = 0;
+    for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
+       auto& blocks = graph.regions[region_idx].blocks;
+       for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+           auto& block = blocks[block_idx];
+           for (auto& op : block.ops) {
                auto op_place = std::make_shared<JsonOpPlace>(m_input_model, op);
                op_place->set_decoder(std::make_shared<DecoderJson>(op_place));
                if (m_telemetry) {
                    op_statistics[op.type]++;
                }
                m_op_places[index].push_back(op_place);
-               for (const auto& output : op.outputPorts) {
+               for (auto& output : op.outputPorts) {
+                   auto it = usedInputIds.find(output.id);
+                   if (it == usedInputIds.end() && op.type != "fetch") {
+                       continue;
+                   }
+                   output.used = true;
                    auto out_port = std::make_shared<OutPortPlace>(m_input_model);
                    auto port_name = std::to_string(output.id);
                    m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, output);
-                   if (op.is_parameter) {
-                       m_const_name_to_id_map[op.name] = port_name;
-                   }
                    if (op.type == "data") {
                        m_inputs.push_back(m_var_places[port_name]);
                    } else if (op.type == "fetch") {
                        m_outputs.push_back(m_var_places[port_name]);
+                   }
+                   if (op.is_parameter) {
+                       m_const_name_to_id_map[op.name] = port_name;
                    }
                    // connect out_port and tensor
                    m_var_places[port_name]->add_producing_port(out_port);
@@ -209,57 +228,26 @@ void JsonInputModelImpl::load_consts(std::istream* weight_stream) {
 
 
 void JsonInputModelImpl::create_temp_consts() {
-    /*
-    for (const auto& item : m_var_places) {
-        const auto& var_place = item.second;
-        const auto& var_desc = var_place->get_desc();
-        const auto& name = item.first;
-        if (var_desc.persistable())
-            continue;
-
-        // The node with tensorarray as its input may be created before the node with this tensorarray
-        // as its output. e.g. the tensorarray is both the input and output of the same node.
-        // So we have to create a fake empty node here.
-        // Problem is, we have no idea which axis should be 0.
-        // Since the models (faster/mask rcnn) are either concating tensors in tensorarray along the dynamic
-        // dimension, or concating static shape tensors. So we make the dynamic dimension to be 0. In case of static
-        // shape, we simply the the first dimension be 0.
-        if (var_desc.type().has_tensor_array()) {
-            const auto& tensor = var_desc.type().tensor_array().tensor();
-            const auto& type = get_ov_type(tensor.data_type());
-
-            std::cout << "WARNING: The PaddlePaddle model has \"TENSOR_ARRAY\" variables, which is supported "
-                      << " under limited situations.\n";
-
-            PartialShape tensor_ps(std::vector<Dimension>(tensor.dims().cbegin(), tensor.dims().cend()));
-            tensor_ps.insert(tensor_ps.begin(), 1);  // unsqueeze
-            // also update the place for following initialize the graph connection
-            var_place->set_element_type(type);
-            var_place->set_partial_shape(tensor_ps);
-
-            Shape shape(tensor_ps.size(), 0);
-            for (size_t i = 0; i < tensor_ps.size(); i++) {
-                const auto& dim = tensor_ps[i];
-                if (dim.is_static()) {
-                    shape[i] = dim.get_length();
-                }
+    for (const auto& block_op_places : m_op_places) {
+        for (const auto& op_place : block_op_places) {
+            const auto& op = std::dynamic_pointer_cast<JsonOpPlace>(op_place)->get_op();
+            if (op.type != "full_int_array") {
+                continue;
             }
-
-            if (tensor_ps.is_static()) {
-                // this tensorarray tensor originally could be scalar, then
-                // tensor_ps size would be 1 after unsqueeze.
-                auto idx = tensor_ps.size() > 1 ? 1 : 0;
-                shape[idx] = 0;
+            auto* op_ptr = (json::OP*)&op;
+            op_ptr->is_parameter = true;
+            auto decoder = op_place->get_decoder();
+            auto value = decoder->get_attribute("value").as<std::vector<int64_t>>();
+            for (auto& port : op.outputPorts) {
+                auto type = convert_to_ov_type(port.precision);
+                auto shape = ov::Shape(port.shapes);
+                auto const_node = opset7::Constant::create(type, shape, (int8_t*)(&value[0]));
+                auto port_name = std::to_string(port.id);
+                const_node->set_friendly_name(port_name);
+                m_tensor_values[port_name] = const_node;
             }
-
-            auto node = opset7::Constant::create(type, shape, {0});
-            node->set_friendly_name(name);
-            node->output(0).get_tensor().add_names({name});
-
-            m_tensor_values[name] = node;
         }
     }
-    */
 }
 
 

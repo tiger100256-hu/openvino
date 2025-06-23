@@ -41,6 +41,7 @@ struct Port {
    std::string layout;
    std::vector<std::vector<size_t>> lod;
    uint64_t offset = 0;
+   bool used = false;
 };
 class OP {
 public:

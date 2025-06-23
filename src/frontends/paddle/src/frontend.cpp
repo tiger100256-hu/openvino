@@ -143,7 +143,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"partial_concat", {}},
             {"partial_sum", {}},
             {"pow", {}},
-            {"pool2d", {}},
+            {"pool2d", {"X"}},
             {"pool3d", {}},
             {"prior_box", {}},
             {"quantize_linear", {}},
@@ -154,8 +154,8 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"reduce_min", {}},
             {"reduce_prod", {}},
             {"reduce_sum", {}},
-            {"relu", {}},
-            {"relu6", {}},
+            {"relu", {"X"}},
+            {"relu6", {"X"}},
             {"reshape2", {}},
             {"reverse", {}},
             {"rnn", {}},
@@ -209,7 +209,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
       };
       auto it = map.find(type);
       bool success = (it != map.end() && (it->second.size() > index));
-      FRONT_END_OP_CONVERSION_CHECK(success, "No input name found for ", type, " node.");
+      FRONT_END_OP_CONVERSION_CHECK(success, "No input name found for ", type, " node.", " index:", index);
       return it->second[index];
 }
 
@@ -568,6 +568,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     auto output_name = get_output_name_by_op_type(op.type);
                     size_t idx = 0;
                     for (const auto& port : op.outputPorts) {
+                        if (!port.used) continue;
                         std::string port_name = std::to_string(port.id);
                         const auto& ng_outputs = named_outputs.at(output_name[0]);
                         nodes_dict[port_name] = ng_outputs[idx];
