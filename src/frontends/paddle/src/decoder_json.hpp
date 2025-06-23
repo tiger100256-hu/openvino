@@ -22,7 +22,7 @@
 namespace ov {
 namespace frontend {
 namespace paddle {
-
+const std::vector<std::string>& get_output_name_by_op_type(const std::string& type);
 class DecoderJson : public paddle::DecoderBase {
 public:
     explicit DecoderJson(const std::shared_ptr<JsonOpPlace>& op) : op_place(op) {}

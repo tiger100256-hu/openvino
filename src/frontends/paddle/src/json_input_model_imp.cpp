@@ -44,7 +44,6 @@ void JsonInputModelImpl::load_places() {
        for (int block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
            const auto& block = blocks[block_idx];
            for (const auto& op : block.ops) {
-               auto op_json = op.json_data;
                auto op_place = std::make_shared<JsonOpPlace>(m_input_model, op);
                op_place->set_decoder(std::make_shared<DecoderJson>(op_place));
                if (m_telemetry) {
@@ -55,6 +54,9 @@ void JsonInputModelImpl::load_places() {
                    auto out_port = std::make_shared<OutPortPlace>(m_input_model);
                    auto port_name = std::to_string(output.id);
                    m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, output);
+                   if (op.is_parameter) {
+                       m_const_name_to_id_map[op.name] = port_name;
+                   }
                    if (op.type == "data") {
                        m_inputs.push_back(m_var_places[port_name]);
                    } else if (op.type == "fetch") {
@@ -142,19 +144,25 @@ std::vector<std::shared_ptr<BaseOpPlace>> JsonInputModelImpl::determine_cut_node
 
 // load_consts with stream is compatible with new PaddlePaddle API.
 void JsonInputModelImpl::load_consts(std::istream* weight_stream) {
-    for (const auto& item : m_var_places) {
-        const auto& port = std::dynamic_pointer_cast<JsonTensorPlace>(item.second)->get_port();
-        const auto& name = item.first;
-        if (ov::util::ends_with(name, std::string{"data"}) || ov::util::ends_with(name, std::string{"fetch"}))
-            continue;
+    std::set<std::string> param_names_set;
+    for (const auto& block_op_places : m_op_places) {
+        for (const auto& op_place : block_op_places) {
+            const auto& op = std::dynamic_pointer_cast<JsonOpPlace>(op_place)->get_op();
+            const auto& name = op.name;
+            //if (ov::util::ends_with(name, std::string{"data"}) || ov::util::ends_with(name, std::string{"fetch"}))
+            //    continue;
 
-        // var_desc.persistable() is used to mark node const value or not.
-        //if (!var_desc.persistable())
-        //   continue;
-
-        // FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
-        FRONT_END_GENERAL_CHECK(weight_stream != nullptr && weight_stream->peek() != EOF,
-                                "PaddlePaddle *.pdiparams format weight file doesn't exist!");
+            // var_desc.persistable() is used to mark node const value or not.
+            if (!op.is_parameter)
+               continue;
+            std::cout << "op.name:" << op.name << "op.type:" << op.type << std::endl;
+            param_names_set.insert(name);
+        }
+    }
+    // FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
+    FRONT_END_GENERAL_CHECK(weight_stream != nullptr&& weight_stream->peek() != EOF,
+                            "PaddlePaddle *.pdiparams format weight file doesn't exist!");
+    for (auto& name : param_names_set) {
         /*
             reference:
             https://github.com/PaddlePaddle/Paddle2ONNX/blob/c14446437041a0aa3572994d085b7a35c5b0985c/paddle2onnx/parser/parser.cc#L261
@@ -181,9 +189,10 @@ void JsonInputModelImpl::load_consts(std::istream* weight_stream) {
         std::unique_ptr<::paddle::framework::proto::VarType_TensorDesc> tensor_desc(
             new ::paddle::framework::proto::VarType_TensorDesc());
         tensor_desc->ParseFromArray(buf.get(), size);
-        Shape shape(port.shapes);
-        const auto& type = convert_to_ov_type(port.precision);
+        Shape shape(tensor_desc->dims().cbegin(), tensor_desc->dims().cend());
+        const auto& type = get_ov_type(tensor_desc->data_type());
         const auto& data_length = shape_size(shape) * type.size();
+        std::cout << "name:" << name << " data_length:" << data_length << std::endl;
         std::vector<uint8_t> tensor_data(data_length);
 
         bool read_succeed = read_tensor(*weight_stream, reinterpret_cast<char*>(&tensor_data[0]), data_length);
@@ -194,7 +203,7 @@ void JsonInputModelImpl::load_consts(std::istream* weight_stream) {
 
         auto const_node = opset7::Constant::create(type, shape, &tensor_data[0]);
         const_node->set_friendly_name(name);
-        m_tensor_values[name] = const_node;
+        m_tensor_values[m_const_name_to_id_map[name]] = const_node;
     }
 }
 

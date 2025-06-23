@@ -28,6 +28,10 @@ void decodeOP(const nlohmann::json& json, OP& op) {
     if (op.type == "p") {
         decodeConst(json, op);
     } else {
+        size_t pos = op.type.find('.');
+        if (pos != std::string::npos) {
+            op.type = op.type.substr(pos + 1);
+        }
         auto& inputsJson = json.at("I");
         for (auto& inputJson : inputsJson) {
             auto inputId = inputJson.at("%").template get<uint64_t>();
@@ -106,7 +110,8 @@ TypeType convertFromStringToType(std::string type) {
   }
 }
 ov::Any decode_vector_attrs(const nlohmann::json& attrs) {
-    for(auto& attr : attrs) {
+    auto& attr_data = attrs.at("D");
+    for(auto& attr : attr_data) {
         std::string attr_type = attr.at("#").template get<std::string>();
         auto pos = attr_type.find(".");
         attr_type = attr_type.substr(pos + 1);
@@ -129,21 +134,22 @@ ov::Any decode_vector_attrs(const nlohmann::json& attrs) {
 }
 
 ov::Any decode_attr(const nlohmann::json& attr) {
-    std::string attr_type = attr.at("#").template get<std::string>();
-    auto pos = attr_type.find(".");
-    attr_type = attr_type.substr(pos + 1);
-    if (attr_type  == "a_i32") {
-        return ov::Any(decode_simple_attr_value<int32_t>(attr));
-    } else if (attr_type  == "a_i64") {
-        return ov::Any(decode_simple_attr_value<int64_t>(attr));
-    } else if (attr_type  == "a_bool") {
-        return ov::Any(decode_simple_attr_value<bool>(attr));
-    } else if (attr_type  == "a_str") {
-        return ov::Any(decode_simple_attr_value<std::string>(attr));
-    } else if (attr_type  == "a_f32") {
-        return ov::Any(decode_simple_attr_value<float>(attr));
-    } else if (attr_type  == "a_array") {
-        return ov::Any(decode_vector_attrs(attr));
+    auto& attr_type = attr.at("AT");
+    std::string attr_type_name = attr_type.at("#").template get<std::string>();
+    auto pos = attr_type_name.find(".");
+    attr_type_name = attr_type_name.substr(pos + 1);
+    if (attr_type_name  == "a_i32") {
+        return ov::Any(decode_simple_attr_value<int32_t>(attr_type));
+    } else if (attr_type_name  == "a_i64") {
+        return ov::Any(decode_simple_attr_value<int64_t>(attr_type));
+    } else if (attr_type_name  == "a_bool") {
+        return ov::Any(decode_simple_attr_value<bool>(attr_type));
+    } else if (attr_type_name  == "a_str") {
+        return ov::Any(decode_simple_attr_value<std::string>(attr_type));
+    } else if (attr_type_name  == "a_f32") {
+        return ov::Any(decode_simple_attr_value<float>(attr_type));
+    } else if (attr_type_name  == "a_array") {
+        return ov::Any(decode_vector_attrs(attr_type));
     }  else {
         FRONT_END_GENERAL_CHECK(false, "unsupport attr type:", attr_type);
     }

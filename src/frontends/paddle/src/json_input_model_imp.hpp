@@ -18,17 +18,16 @@ namespace json {
 class JsonProgramDesc {
 public:
     bool ParseFromIstream (std::istream& pb_stream) {
-        nlohmann::json data;
         try {
-            data = nlohmann::json::parse(pb_stream);
+            m_graph.json_data = nlohmann::json::parse(pb_stream);
         } catch (nlohmann::json::parse_error& e) {
             return false;
         }
-        auto& base_code = data.at("base_code");
+        auto& base_code = m_graph.json_data.at("base_code");
         m_graph.magic = base_code.at("magic").template get<std::string>();
         m_graph.trainable = base_code.at("trainable").template get<bool>();
         m_graph.version = base_code.at("version").template get<uint64_t>();
-        auto& programJson = data.at("program");
+        auto& programJson = m_graph.json_data.at("program");
         auto& regionsJson = programJson.at("regions");
         for (auto& regionJson : regionsJson) {
             Region newRegion;
@@ -145,6 +144,7 @@ private:
 
     std::vector<std::vector<std::shared_ptr<BaseOpPlace>>> m_op_places;
     std::map<std::string, std::shared_ptr<BaseTensorPlace>> m_var_places;
+    std::map<std::string, std::string> m_const_name_to_id_map;
     std::shared_ptr<JsonProgramDesc> m_fw_ptr;
     const InputModel& m_input_model;
     std::vector<Place::Ptr> m_inputs;

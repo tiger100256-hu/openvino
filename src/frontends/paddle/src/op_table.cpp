@@ -157,6 +157,7 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
             {"assign", op::assign},
             {"assign_value", op::assign_value},
             {"batch_norm", op::batch_norm},
+            {"batch_norm_", op::batch_norm},
             {"bicubic_interp_v2", op::bicubic_interp_v2},
             {"bilinear_interp_v2", op::bilinear_interp_v2},
             {"bilinear_interp", op::bilinear_interp_v2},

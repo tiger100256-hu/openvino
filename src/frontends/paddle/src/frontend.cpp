@@ -54,6 +54,165 @@ namespace frontend {
 namespace paddle {
 namespace {
 
+const std::string& get_input_name_by_op_type(const std::string& type, size_t index) {
+      static std::map<const std::string, const std::vector<std::string>> map = {
+            {"arg_max", {}},
+            {"arg_min", {}},
+            {"assign", {}},
+            {"assign_value", {}},
+            {"batch_norm_", {"X", "Scale", "Bias", "Mean", "Variance"}},
+            {"bicubic_interp_v2", {}},
+            {"bilinear_interp_v2", {}},
+            {"bilinear_interp", {}},
+            {"bmm", {}},
+            {"box_coder", {}},
+            {"cast", {}},
+            {"ceil", {}},
+            {"clip", {}},
+            {"concat", {}},
+            {"conditional_block", {}},
+            {"conv2d", {"Input", "Filter"}},
+            {"conv2d_transpose", {}},
+            {"cos", {}},
+            {"cumsum", {}},
+            {"deformable_conv", {}},
+            {"deformable_conv_v1", {}},
+            {"depthwise_conv2d", {}},
+            {"depthwise_conv2d_transpose", {}},
+            {"dequantize_linear", {}},
+            {"elementwise_add", {}},
+            {"elementwise_div", {}},
+            {"elementwise_floordiv", {}},
+            {"elementwise_mod", {}},
+            {"elementwise_mul", {}},
+            {"elementwise_max", {}},
+            {"elementwise_min", {}},
+            {"elementwise_sub", {}},
+            {"dropout", {}},
+            {"elementwise_pow", {}},
+            {"elu", {}},
+            {"equal", {}},
+            {"exp", {}},
+            {"expand_v2", {}},
+            {"expand_as_v2", {}},
+            {"eye", {}},
+            {"fill_any_like", {}},
+            {"fill_constant", {}},
+            {"fill_constant_batch_size_like", {}},
+            {"flatten_contiguous_range", {}},
+            {"flip", {}},
+            {"floor", {}},
+            {"gather", {}},
+            {"gather_nd", {}},
+            {"gelu", {}},
+            {"generate_proposals_v2", {}},
+            {"greater_equal", {}},
+            {"greater_than", {}},
+            {"grid_sampler", {}},
+            {"group_norm", {}},
+            {"hard_sigmoid", {}},
+            {"hard_swish", {}},
+            {"index_select", {}},
+            {"layer_norm", {}},
+            {"leaky_relu", {}},
+            {"less_than", {}},
+            {"less_equal", {}},
+            {"linear_interp_v2", {}},
+            {"linspace", {}},
+            {"lod_array_length", {}},
+            {"log", {}},
+            {"logical_and", {}},
+            {"logical_not", {}},
+            {"logical_or", {}},
+            {"logical_xor", {}},
+            {"lookup_table_v2", {}},
+            {"matmul", {}},
+            {"matmul_v2", {}},
+            {"max_pool2d_with_index", {}},
+            {"max_pool3d_with_index", {}},
+            {"matrix_nms", {}},
+            {"memcpy", {}},
+            {"meshgrid", {}},
+            {"multiclass_nms3", {}},
+            {"nearest_interp_v2", {}},
+            {"nearest_interp", {}},
+            {"not_equal", {}},
+            {"one_hot_v2", {}},
+            {"p_norm", {}},
+            {"pad3d", {}},
+            {"partial_concat", {}},
+            {"partial_sum", {}},
+            {"pow", {}},
+            {"pool2d", {}},
+            {"pool3d", {}},
+            {"prior_box", {}},
+            {"quantize_linear", {}},
+            {"range", {}},
+            {"reduce_all", {}},
+            {"reduce_max", {}},
+            {"reduce_mean", {}},
+            {"reduce_min", {}},
+            {"reduce_prod", {}},
+            {"reduce_sum", {}},
+            {"relu", {}},
+            {"relu6", {}},
+            {"reshape2", {}},
+            {"reverse", {}},
+            {"rnn", {}},
+            {"roi_align", {}},
+            {"roll", {}},
+            {"round", {}},
+            {"rsqrt", {}},
+            {"scale", {}},
+            {"select_input", {}},
+            {"set_value", {}},
+            {"shape", {}},
+            {"share_data", {}},
+            {"sigmoid", {}},
+            {"silu", {}},
+            {"sin", {}},
+            {"slice", {}},
+            {"softmax", {}},
+            {"softplus", {}},
+            {"softshrink", {}},
+            {"split", {}},
+            {"sqrt", {}},
+            {"squeeze2", {}},
+            {"stack", {}},
+            {"strided_slice", {}},
+            {"sum", {}},
+            {"swish", {}},
+            {"sync_batch_norm", {}},
+            {"tanh", {}},
+            {"tanh_shrink", {}},
+            {"tensor_array_to_tensor", {}},
+            {"tile", {}},
+            {"top_k_v2", {}},
+            {"transpose2", {}},
+            {"tril_triu", {}},
+            {"trilinear_interp_v2", {}},
+            {"unsqueeze2", {}},
+            {"unique", {}},
+            {"unstack", {}},
+            {"where", {}},
+            {"while", {}},
+            {"write_to_array", {}},
+            {"where_index", {}},
+            {"yolo_box", {}},
+            {"abs", {}},
+            {"elu", {}},
+            {"atan2", {}},
+            {"scatter", {}},
+            {"scatter_nd_add", {}},
+            {"take_along_axis", {}},
+            {"reduce_any", {}}
+      };
+      auto it = map.find(type);
+      bool success = (it != map.end() && (it->second.size() > index));
+      FRONT_END_OP_CONVERSION_CHECK(success, "No input name found for ", type, " node.");
+      return it->second[index];
+}
+
 NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& nodes,
                           const std::shared_ptr<BaseOpPlace>& op_place,
                           const std::map<std::string, CreatorFunction>& CREATORS_MAP) {
@@ -90,6 +249,7 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
         auto creator_it = CREATORS_MAP.find(type);
         FRONT_END_OP_CONVERSION_CHECK(creator_it != CREATORS_MAP.end(), "No creator found for ", type, " node.");
         NamedInputs named_inputs;
+        size_t input_name_index = 0;
         for (const auto& inputId : json_op_place->get_op().inputIds) {
             auto port_name = std::to_string(inputId);
             auto node_it = nodes.find(port_name);
@@ -100,7 +260,9 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
                     " for node with type ",
                     type,
                     " wasn't found. It may happen if model was cut incorrectly.");
-            named_inputs[port_name].push_back(node_it->second);
+            auto input_name = get_input_name_by_op_type(json_op_place->get_op().type, input_name_index);
+            input_name_index++;
+            named_inputs[input_name].push_back(node_it->second);
         }
         NamedOutputs outputs;
         // In case the conversion function throws exception
@@ -149,6 +311,7 @@ NamedOutputs make_framework_node(const std::map<paddle::TensorName, Output<Node>
         std::vector<std::string> inputs_names;
         NamedOutputs named_outputs;
         auto op = json_op_place->get_op();
+        size_t input_name_index = 0;
         for (const auto& inputId : op.inputIds) {
                 auto port_name = std::to_string(inputId);
                 auto it = nodes.find(port_name);
@@ -160,7 +323,9 @@ NamedOutputs make_framework_node(const std::map<paddle::TensorName, Output<Node>
                         op.type,
                         " wasn't found. It may happen if model was cut incorrectly.");
                 inputs_vector.push_back(it->second);
-                inputs_names.push_back(port_name);
+                auto input_name = get_input_name_by_op_type(op.type, input_name_index);
+                input_name_index++;
+                inputs_names.push_back(input_name);
         }
         auto decoder_json = std::dynamic_pointer_cast<DecoderJson>(json_op_place->get_decoder());
         if (!decoder_json)
@@ -305,12 +470,12 @@ void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, 
 }
 
 std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recursive(
-    const std::shared_ptr<ov::frontend::InputModel>& frontend_model,
-    const int32_t block_idx,
-    const std::vector<std::shared_ptr<BaseTensorPlace>>& input_tensors,
-    const std::vector<std::shared_ptr<BaseTensorPlace>>& output_tensors,
-    std::function<std::map<std::string, OutputVector>(const std::map<std::string, Output<Node>>&,
-    const std::shared_ptr<BaseOpPlace>&) > func) {
+         const std::shared_ptr<ov::frontend::InputModel>& frontend_model,
+         const int32_t block_idx,
+         const std::vector<std::shared_ptr<BaseTensorPlace>>& input_tensors,
+         const std::vector<std::shared_ptr<BaseTensorPlace>>& output_tensors,
+         std::function<std::map<std::string, OutputVector>(const std::map<std::string, Output<Node>>&,
+         const std::shared_ptr<BaseOpPlace>&) > func) {
     auto model = std::dynamic_pointer_cast<InputModel>(frontend_model);
     FRONT_END_GENERAL_CHECK(model, "Invalid input model");
     auto nodes_dict(model->get_tensor_values());
@@ -331,8 +496,8 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
         } else if (const auto& json_place = std::dynamic_pointer_cast<JsonTensorPlace>(_inp_place)) {
             const auto& port = json_place->get_port();
             const auto& port_name = std::to_string(port.id);
-            const auto& shape = inp_place->get_partial_shape();
-            const auto& type = inp_place->get_element_type();
+            const auto shape =  ov::PartialShape(port.shapes);
+            const auto type = json::convert_to_ov_type(port.precision);
             auto param = std::make_shared<Parameter>(type, shape);
             param->set_friendly_name(port_name);
             param->output(0).get_tensor().add_names({port_name});
@@ -382,34 +547,33 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
             if (op.type == "data" || op.type == "fetch") {
                 // inputs and outputs are stored in the model already
                 continue;
+            } else if (op.is_parameter) {
+                // const are stored in the model already
+                continue;
             } else {
-                FRONT_END_OP_CONVERSION_CHECK(false, "haven't implement ");
                 // try_update_sublock_info(op_place, subblock_inputs_outputs);
-                // paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
-                // if (!named_outputs.empty()) {
-                //     if (!op_desc.outputs().begin()->arguments().empty()) {
-                //         const auto& tensor_name = op_desc.outputs().begin()->arguments()[0];
-                //         auto node = named_outputs.begin()->second[0].get_node_shared_ptr();
-                //         node->set_friendly_name(tensor_name);
-                //     }
-                //     const auto& out_ports = op_desc.outputs();
-                //     for (const auto& port : out_ports) {
-                //         // TODO: figure a way to safely handle unused outputs
-                //         if (named_outputs.count(port.parameter())) {
-                //             const auto& ng_outputs = named_outputs.at(port.parameter());
-                //             FRONT_END_OP_CONVERSION_CHECK(ng_outputs.size() == (size_t)port.arguments_size(),
-                //                                           "The number of output tensors must be equal to "
-                //                                           "the number of outputs of the OV node.");
-                //             for (size_t idx = 0; idx < ng_outputs.size(); ++idx) {
-                //                 const auto& var_name = port.arguments()[static_cast<int>(idx)];
-                //                 ng_outputs[idx].get_tensor().set_names({var_name});
-                //                 // if nodes_dict already has node mapped to this tensor name it
-                //                 // usually means that it was overwritten using set_tensor_value
-                //                 nodes_dict[var_name] = ng_outputs[idx];
-                //             }
-                //         }
-                //     }
-                // }
+                paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
+                if (!named_outputs.empty()) {
+                    const auto& tensor_name = op.name;
+                    auto node = named_outputs.begin()->second[0].get_node_shared_ptr();
+                    if(!tensor_name.empty()) {
+                        node->set_friendly_name(tensor_name);
+                    } else {
+                        std::string node_name = op.type;
+                        for (const auto& port : op.outputPorts) {
+                            node_name += "/" + std::to_string(port.id);
+                        }
+                        node->set_friendly_name(node_name);
+                    }
+                    auto output_name = get_output_name_by_op_type(op.type);
+                    size_t idx = 0;
+                    for (const auto& port : op.outputPorts) {
+                        std::string port_name = std::to_string(port.id);
+                        const auto& ng_outputs = named_outputs.at(output_name[0]);
+                        nodes_dict[port_name] = ng_outputs[idx];
+                        idx++;
+                    }
+                }
             }
         } else {
             FRONT_END_OP_CONVERSION_CHECK(false, "convert BaseTensorPlace failed ");

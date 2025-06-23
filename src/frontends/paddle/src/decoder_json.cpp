@@ -23,9 +23,15 @@ using namespace ::paddle::framework;
 ov::Any DecoderJson::get_attribute(const std::string& name) const {
     auto& op = op_place.lock()->get_op();
     auto& attrs = op.json_data.at("A");
+    static const std::map<std::string, std::string> attr_name_map = {{"data_layout", "data_format"}};
+    std::string new_name = name;
+    auto it = attr_name_map.find(name);
+    if (it != attr_name_map.end()) {
+       new_name = it->second;
+    }
     for (auto& attr : attrs) {
         std::string attr_name = attr.at("N").template get<std::string>();
-        if (attr_name == name) {
+        if (attr_name == new_name) {
             return json::decode_attr(attr);
         }
     }
@@ -51,14 +57,173 @@ ov::Any DecoderJson::convert_attribute(const Any& data, const std::type_info& ty
     return data;
 }
 
+const std::vector<std::string>& get_output_name_by_op_type(const std::string& type) {
+      static std::map<const std::string, const std::vector<std::string>> map = {
+            {"arg_max", {}},
+            {"arg_min", {}},
+            {"assign", {}},
+            {"assign_value", {}},
+            {"batch_norm_", {"Y"}},
+            {"bicubic_interp_v2", {}},
+            {"bilinear_interp_v2", {}},
+            {"bilinear_interp", {}},
+            {"bmm", {}},
+            {"box_coder", {}},
+            {"cast", {}},
+            {"ceil", {}},
+            {"clip", {}},
+            {"concat", {}},
+            {"conditional_block", {}},
+            {"conv2d", {"Output"}},
+            {"conv2d_transpose", {}},
+            {"cos", {}},
+            {"cumsum", {}},
+            {"deformable_conv", {}},
+            {"deformable_conv_v1", {}},
+            {"depthwise_conv2d", {}},
+            {"depthwise_conv2d_transpose", {}},
+            {"dequantize_linear", {}},
+            {"elementwise_add", {}},
+            {"elementwise_div", {}},
+            {"elementwise_floordiv", {}},
+            {"elementwise_mod", {}},
+            {"elementwise_mul", {}},
+            {"elementwise_max", {}},
+            {"elementwise_min", {}},
+            {"elementwise_sub", {}},
+            {"dropout", {}},
+            {"elementwise_pow", {}},
+            {"elu", {}},
+            {"equal", {}},
+            {"exp", {}},
+            {"expand_v2", {}},
+            {"expand_as_v2", {}},
+            {"eye", {}},
+            {"fill_any_like", {}},
+            {"fill_constant", {}},
+            {"fill_constant_batch_size_like", {}},
+            {"flatten_contiguous_range", {}},
+            {"flip", {}},
+            {"floor", {}},
+            {"gather", {}},
+            {"gather_nd", {}},
+            {"gelu", {}},
+            {"generate_proposals_v2", {}},
+            {"greater_equal", {}},
+            {"greater_than", {}},
+            {"grid_sampler", {}},
+            {"group_norm", {}},
+            {"hard_sigmoid", {}},
+            {"hard_swish", {}},
+            {"index_select", {}},
+            {"layer_norm", {}},
+            {"leaky_relu", {}},
+            {"less_than", {}},
+            {"less_equal", {}},
+            {"linear_interp_v2", {}},
+            {"linspace", {}},
+            {"lod_array_length", {}},
+            {"log", {}},
+            {"logical_and", {}},
+            {"logical_not", {}},
+            {"logical_or", {}},
+            {"logical_xor", {}},
+            {"lookup_table_v2", {}},
+            {"matmul", {}},
+            {"matmul_v2", {}},
+            {"max_pool2d_with_index", {}},
+            {"max_pool3d_with_index", {}},
+            {"matrix_nms", {}},
+            {"memcpy", {}},
+            {"meshgrid", {}},
+            {"multiclass_nms3", {}},
+            {"nearest_interp_v2", {}},
+            {"nearest_interp", {}},
+            {"not_equal", {}},
+            {"one_hot_v2", {}},
+            {"p_norm", {}},
+            {"pad3d", {}},
+            {"partial_concat", {}},
+            {"partial_sum", {}},
+            {"pow", {}},
+            {"pool2d", {}},
+            {"pool3d", {}},
+            {"prior_box", {}},
+            {"quantize_linear", {}},
+            {"range", {}},
+            {"reduce_all", {}},
+            {"reduce_max", {}},
+            {"reduce_mean", {}},
+            {"reduce_min", {}},
+            {"reduce_prod", {}},
+            {"reduce_sum", {}},
+            {"relu", {}},
+            {"relu6", {}},
+            {"reshape2", {}},
+            {"reverse", {}},
+            {"rnn", {}},
+            {"roi_align", {}},
+            {"roll", {}},
+            {"round", {}},
+            {"rsqrt", {}},
+            {"scale", {}},
+            {"select_input", {}},
+            {"set_value", {}},
+            {"shape", {}},
+            {"share_data", {}},
+            {"sigmoid", {}},
+            {"silu", {}},
+            {"sin", {}},
+            {"slice", {}},
+            {"softmax", {}},
+            {"softplus", {}},
+            {"softshrink", {}},
+            {"split", {}},
+            {"sqrt", {}},
+            {"squeeze2", {}},
+            {"stack", {}},
+            {"strided_slice", {}},
+            {"sum", {}},
+            {"swish", {}},
+            {"sync_batch_norm", {}},
+            {"tanh", {}},
+            {"tanh_shrink", {}},
+            {"tensor_array_to_tensor", {}},
+            {"tile", {}},
+            {"top_k_v2", {}},
+            {"transpose2", {}},
+            {"tril_triu", {}},
+            {"trilinear_interp_v2", {}},
+            {"unsqueeze2", {}},
+            {"unique", {}},
+            {"unstack", {}},
+            {"where", {}},
+            {"while", {}},
+            {"write_to_array", {}},
+            {"where_index", {}},
+            {"yolo_box", {}},
+            {"abs", {}},
+            {"elu", {}},
+            {"atan2", {}},
+            {"scatter", {}},
+            {"scatter_nd_add", {}},
+            {"take_along_axis", {}},
+            {"reduce_any", {}}
+      };
+      auto it = map.find(type);
+      bool success = (it != map.end()) && (it->second.size() > 0);
+      FRONT_END_OP_CONVERSION_CHECK(success, "No output name found for ", type, " node.");
+      return it->second;
+}
+
 std::vector<paddle::OutPortName> DecoderJson::get_output_names() const {
     std::vector<std::string> output_names;
     auto& op = op_place.lock()->get_op();
-    auto& outputs = op.json_data.at("O");
-    for (const auto& output : outputs) {
-        auto portName = output.at("#").template get<uint32_t>();
-        output_names.push_back(std::to_string(portName));
+    auto fix_output_name = get_output_name_by_op_type(op.type);
+    for (auto& name : fix_output_name) {
+        output_names.push_back(name);
     }
+
     return output_names;
 }
 // ?

@@ -34,13 +34,13 @@ enum TypeType {
     VEC
 };
 struct Port {
-   uint64_t id;
+   uint64_t id = 0;
    std::string type;
    TypeType precision;
    std::vector<size_t> shapes;
    std::string layout;
    std::vector<std::vector<size_t>> lod;
-   uint64_t offset;
+   uint64_t offset = 0;
 };
 class OP {
 public:
@@ -49,9 +49,9 @@ public:
    std::string type;
    std::vector<uint64_t> inputIds;
    std::vector<Port> outputPorts;
-   bool is_distributed;
-   bool is_parameter;
-   bool need_clip;
+   bool is_distributed = false;
+   bool is_parameter = false;
+   bool need_clip = false;
    std::string distAttrs;
    std::string attrs;
    std::string outAttrs;
@@ -69,9 +69,10 @@ struct Region{
 };
 struct Graph {
     std::string magic;
-    uint64_t version;
-    bool trainable;
+    uint64_t version = 0;
+    bool trainable = false;
     std::vector<Region> regions;
+    nlohmann::json json_data;
 };
 TypeType convertFromStringToType(std::string type);
 void decodeRegion(const nlohmann::json& json, Region& region);
@@ -87,8 +88,9 @@ T decode_simple_attr_value(const nlohmann::json& json) {
 
 template<typename T>
 std::vector<T> decode_vector_attrs_value(const nlohmann::json& attrs) {
+    auto& attr_data = attrs.at("D");
     std::vector<T> result;
-    for(auto& attr : attrs) {
+    for(auto& attr : attr_data) {
         T attr_value = attr.at("D").template get<T>();
         result.push_back(std::move(attr_value));
     }
