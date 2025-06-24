@@ -3,6 +3,7 @@
 //
 
 #include "openvino/frontend/paddle/frontend.hpp"
+#include "openvino/core/graph_util.hpp"
 
 #include <google/protobuf/port_def.inc>
 #include <memory>
@@ -60,7 +61,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"arg_min", {}},
             {"assign", {}},
             {"assign_value", {}},
-            {"batch_norm_", {"X", "Scale", "Bias", "Mean", "Variance"}},
+            {"batch_norm_", {"X", "Mean", "Variance", "Scale", "Bias"}},
             {"bicubic_interp_v2", {}},
             {"bilinear_interp_v2", {}},
             {"bilinear_interp", {}},
@@ -610,6 +611,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
         main_block_func = std::make_shared<ov::Model>(output_nodes);
     }
     // convert each sub block
+    // ov::save_model(main_block_func, "resnet.xml");
     std::map<int32_t, std::shared_ptr<ov::Model>> block_funcs;
     block_funcs.insert({block_idx, main_block_func});
     for (auto& item : subblock_inputs_outputs) {
@@ -831,6 +833,7 @@ std::shared_ptr<ov::Model> FrontEnd::decode(const InputModel::Ptr& model) const 
     auto paddle_model = std::dynamic_pointer_cast<InputModel>(model);
     FRONT_END_GENERAL_CHECK(paddle_model != nullptr, "Invalid input model");
 
+    // FRONT_END_GENERAL_CHECK(false, "haven't implement");
     auto f = convert_each_node(paddle_model, paddle::make_framework_node);
     FRONT_END_GENERAL_CHECK(f.size() == 1, "Input model has subblocks, currently 'decode' could not support it");
     return f[0];

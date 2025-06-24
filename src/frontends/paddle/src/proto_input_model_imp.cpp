@@ -196,6 +196,7 @@ void ProtoInputModelImpl::load_consts(std::istream* weight_stream) {
         Shape shape(tensor_desc->dims().cbegin(), tensor_desc->dims().cend());
         const auto& type = get_ov_type(tensor_desc->data_type());
         const auto& data_length = shape_size(shape) * type.size();
+        // std::cout << "name:" << name << " data_length:" << data_length << std::endl;
         std::vector<uint8_t> tensor_data(data_length);
 
         bool read_succeed = read_tensor(*weight_stream, reinterpret_cast<char*>(&tensor_data[0]), data_length);
@@ -203,6 +204,13 @@ void ProtoInputModelImpl::load_consts(std::istream* weight_stream) {
                                 "File containing constant with name ",
                                 name,
                                 " wasn't successfully read.");
+
+        // if (shape_size(shape) > 8 * 2) {
+        //     auto* data = (float*)(&tensor_data[0]);
+        //     float a  = *data;
+        //     float b  = *(data + 1);
+        //     std::cout << " "  << a << " " << b << std::endl;
+        // }
 
         auto const_node = opset7::Constant::create(type, shape, &tensor_data[0]);
         const_node->set_friendly_name(name);

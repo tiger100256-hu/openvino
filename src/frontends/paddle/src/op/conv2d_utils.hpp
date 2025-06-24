@@ -18,7 +18,14 @@ template <typename T1, typename T2>
 NamedOutputs conv2d_base(const NodeContext& node) {
     auto data = node.get_input("Input");
     auto filters = node.get_input("Filter");
-
+    // if (node.is_json_format()) {
+    //     auto ksize_op = filters.get_node_shared_ptr();
+    //     auto ksize_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(ksize_op);
+    //     auto filter_value = ksize_const->get_vector<float>();
+    //     for (int i = 0; i < 2; i++) {
+    //          std::cout << "value[0]" << filter_value[i] << std::endl;
+    //     }
+    // }
     const auto strides = node.get_attribute<std::vector<int32_t>>("strides");
     const auto dilations = node.get_attribute<std::vector<int32_t>>("dilations");
     const auto auto_pad_type = get_auto_pad(node);

@@ -212,7 +212,7 @@ void JsonInputModelImpl::load_consts(std::istream* weight_stream) {
         Shape shape(tensor_desc->dims().cbegin(), tensor_desc->dims().cend());
         const auto& type = get_ov_type(tensor_desc->data_type());
         const auto& data_length = shape_size(shape) * type.size();
-        std::cout << "name:" << name << " data_length:" << data_length << std::endl;
+        // std::cout << "name:" << name << " data_length:" << data_length << std::endl;
         std::vector<uint8_t> tensor_data(data_length);
 
         bool read_succeed = read_tensor(*weight_stream, reinterpret_cast<char*>(&tensor_data[0]), data_length);
@@ -222,6 +222,12 @@ void JsonInputModelImpl::load_consts(std::istream* weight_stream) {
                                 " wasn't successfully read.");
 
         auto const_node = opset7::Constant::create(type, shape, &tensor_data[0]);
+        // if (shape_size(shape) > 8 * 2) {
+        //     auto* data = (float*)(&tensor_data[0]);
+        //     float a  = *data;
+        //     float b  = *(data + 1);
+        //     std::cout << " "  << a << " " << b << std::endl;
+        // }
         const_node->set_friendly_name(name);
         m_tensor_values[m_const_name_to_id_map[name]] = const_node;
     }
@@ -246,6 +252,7 @@ void JsonInputModelImpl::create_temp_consts() {
                 auto port_name = std::to_string(port.id);
                 const_node->set_friendly_name(port_name);
                 m_tensor_values[port_name] = const_node;
+                // std::cout << "full_int_array:" << port_name << std::endl;
             }
         }
     }
@@ -341,6 +348,7 @@ ov::element::Type JsonInputModelImpl::get_element_type(const Place::Ptr& place) 
 }
 
 void JsonInputModelImpl::set_tensor_value(Place::Ptr place, const void* value) {
+    // std::cout << "============set_tensor_value============" << std::endl;
     m_graph_changed = true;
     auto tensor_place = castToTensorPlace(place);
     auto p_shape = tensor_place->get_partial_shape();
