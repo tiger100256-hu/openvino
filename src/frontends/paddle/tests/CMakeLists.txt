@@ -54,8 +54,11 @@ if(paddlepaddle_FOUND)
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     message(STATUS "PaddlePaddle version: ${PADDLE_VERSION}")
-    
-    if(PADDLE_VERSION VERSION_GREATER_EQUAL "2.6.0" OR PADDLE_VERSION VERSION_EQUAL "0.0.0")
+    if(PADDLE_VERSION VERSION_GREATER_EQUAL "3.0.0" OR PADDLE_VERSION VERSION_EQUAL "0.0.0")
+        set(PADDLEDET_OPS_URL "https://raw.githubusercontent.com/PaddlePaddle/PaddleDetection/release/2.8.1/ppdet/modeling/ops.py")
+        set(PADDLEDET_OPS_SHA256 "9b3193d91d617a6c9e6ef49896dc8612cbcbb67c146d0a76ce16bf2b64dac86f")
+        set(PADDLEDET_DIRNAME ${CMAKE_CURRENT_BINARY_DIR}/thirdparty/PaddleDetection/release281/ppdet/modeling/)
+    elseif(PADDLE_VERSION VERSION_GREATER_EQUAL "2.6.0")
         set(PADDLEDET_OPS_URL "https://raw.githubusercontent.com/PaddlePaddle/PaddleDetection/release/2.5/ppdet/modeling/ops.py")
         set(PADDLEDET_OPS_SHA256 "e3da816421698ee97bb272c4410a03c300ab92045b7c87cccb9e52a8c18bc088")
         set(PADDLEDET_DIRNAME ${CMAKE_CURRENT_BINARY_DIR}/thirdparty/PaddleDetection/release25/ppdet/modeling/)
