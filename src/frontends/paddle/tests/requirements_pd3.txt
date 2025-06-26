@@ -1,5 +1,5 @@
 # PaddlePaddle - generate test models
 -c ../../../bindings/python/constraints.txt
 protobuf
-numpy
+numpy==2.2.6
 paddlepaddle==3.0.0

@@ -8,8 +8,8 @@ set(TARGET_NAME "paddle_tests_${PDVTAG}")
 set(CODE_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../)
 set(PADDLE_REQ "${CODE_ROOT_DIR}/requirements_${PDVTAG}.txt")
 if(Python3_Interpreter_FOUND)
-    execute_process(
-        COMMAND ${Python3_EXECUTABLE} -m pip install --force-reinstall paddlepaddle==${PDV})
+    #execute_process(
+    #    COMMAND ${Python3_EXECUTABLE} -m pip install --force-reinstall paddlepaddle==${PDV})
     execute_process(
         COMMAND ${Python3_EXECUTABLE} "${CODE_ROOT_DIR}/paddle_pip_check.py" ${PADDLE_REQ}
         RESULT_VARIABLE EXIT_CODE
@@ -19,7 +19,7 @@ endif()
 
 if(NOT EXIT_CODE EQUAL 0)
     set(paddlepaddle_FOUND OFF)
-    message(WARNING "Python requirement file ${PADDLE_REQ} is not installed, PaddlePaddle testing models weren't generated, some tests will fail due models not found")
+    message(ERROR "Python requirement file ${PADDLE_REQ} is not installed, PaddlePaddle testing models weren't generated, some tests will fail due models not found")
 else()
     set(paddlepaddle_FOUND ON)
 endif()
@@ -70,7 +70,7 @@ endif()
 
 set(TEST_PADDLE_MODELS_DIRNAME ${TEST_MODEL_ZOO}/paddle_test_models/${PDVTAG})
 target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODELS_DIRNAME=\"${TEST_PADDLE_MODELS_DIRNAME}/\")
-target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODEL_EXT=\"${TEST_PADDLE_MODEL_EXT}/\")
+target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODEL_EXT=\"${TEST_PADDLE_MODEL_EXT}\")
 
 # If 'paddlepaddle' is not found, code will still be compiled, but models will not be generated and tests will fail
 # This is done this way for 'code style' and check cases - cmake shall pass, but CI machine doesn't need to have
@@ -79,13 +79,13 @@ if(PADDLEDET_RESULT)
     set(TEST_PADDLE_MODELS ${TEST_MODEL_ZOO_OUTPUT_DIR}/paddle_test_models/${PDVTAG}/)
 
     file(GLOB_RECURSE PADDLE_ALL_SCRIPTS ${CODE_ROOT_DIR}/*.py)
-    set(OUT_FILE ${TEST_PADDLE_MODELS}/generate_done.txt)
-    set(GEN_ENV_PY_LIST ${TEST_PADDLE_MODELS}/generate_py_env.txt)
-    add_custom_command(OUTPUT ${GEN_ENV_PY_LIST}
-            COMMAND ${Python3_EXECUTABLE} -m pip install --force-reinstall paddlepaddle==${PDV} 
-	        COMMAND ${Python3_EXECUTABLE} -m pip list > ${GEN_ENV_PY_LIST}
-	        DEPENDS ${PADDLE_REQ})
+    set(OUT_FILE ${TEST_PADDLE_MODELS}/generate_done_${PDVTAG}.txt)
+    #set(GEN_ENV_PY_LIST ${TEST_PADDLE_MODELS}/generate_py_env_${PDVTAG}.txt)
+    #add_custom_command(OUTPUT ${GEN_ENV_PY_LIST}
+	#        COMMAND ${Python3_EXECUTABLE} -m pip list > ${GEN_ENV_PY_LIST}
+	#        DEPENDS ${PADDLE_REQ})
     add_custom_command(OUTPUT ${OUT_FILE}
+            #COMMAND ${Python3_EXECUTABLE} -m pip install --force-reinstall paddlepaddle==${PDV} 
             COMMAND  ${CMAKE_COMMAND} -E env PYTHONPATH=${PADDLEDET_DIRNAME}
                 ${Python3_EXECUTABLE}
                     ${CODE_ROOT_DIR}/test_models/gen_wrapper.py
