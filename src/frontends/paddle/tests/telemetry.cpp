@@ -14,7 +14,7 @@ static TelemetryFEParam getTestData() {
     TelemetryFEParam res;
     res.m_frontEndName = PADDLE_FE;
     res.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    res.m_modelName = "relu/relu.pdmodel";
+    res.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_expected_events = {{std::make_tuple("mo", "op_count", "paddle_feed", 1),
                               std::make_tuple("mo", "op_count", "paddle_fetch", 1),
                               std::make_tuple("mo", "op_count", "paddle_relu", 1),

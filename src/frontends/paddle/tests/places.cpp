@@ -13,7 +13,7 @@
 using namespace ov::frontend;
 
 const std::string model_file = FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) +
-                                                                  "place_test_model/place_test_model.pdmodel");
+                                                                  "place_test_model/place_test_model" + std::string(TEST_PADDLE_MODEL_EXT));
 const std::string vars_name_file =
     FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) + "place_test_model/vars_name.txt");
 const std::string outputs_name_file =

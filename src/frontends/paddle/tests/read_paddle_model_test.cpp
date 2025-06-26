@@ -19,7 +19,7 @@
 
 TEST(Paddle_Reader_Tests, LoadModelMemoryToCore) {
     auto model =
-        FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) + "conv2d_relu/conv2d_relu.pdmodel");
+        FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) + "conv2d_relu/conv2d_relu" + std::string(TEST_PADDLE_MODEL_EXT));
     auto param = FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) +
                                                     "conv2d_relu/conv2d_relu.pdiparams");
 
@@ -81,7 +81,7 @@ TEST(Paddle_Reader_Tests, LoadModelMemoryToCore) {
 }
 
 TEST(Paddle_Reader_Tests, ImportBasicModelToCore) {
-    auto model = FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) + "relu/relu.pdmodel");
+    auto model = FrontEndTestUtils::make_model_path(std::string(TEST_PADDLE_MODELS_DIRNAME) + "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT));
 
     ov::Core core;
     auto function = core.read_model(FrontEndTestUtils::make_model_path(model));
@@ -112,7 +112,7 @@ TEST(Paddle_Reader_Tests, ImportBasicModelToCore) {
 
 #if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
 TEST(Paddle_Reader_Tests, ImportBasicModelToCoreWstring) {
-    std::string win_dir_path{TEST_PADDLE_MODELS_DIRNAME "relu/relu.pdmodel"};
+    std::string win_dir_path{TEST_PADDLE_MODELS_DIRNAME "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT)};
     win_dir_path = FrontEndTestUtils::make_model_path(win_dir_path);
     std::wstring wmodel =
         ov::test::utils::addUnicodePostfixToPath(win_dir_path, ov::test::utils::test_unicode_postfix_vector[0]);

@@ -3,5 +3,6 @@
 #
 set(PDV "3.0.0")
 set(PDVTAG "pd3")
+set(TEST_PADDLE_MODEL_EXT ".json")
 include(../common.cmake)
 

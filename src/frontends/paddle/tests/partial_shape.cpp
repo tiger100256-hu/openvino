@@ -13,7 +13,7 @@ using PaddlePartialShapeTest = FrontEndPartialShapeTest;
 
 static PartShape getTestShape_2in_2out() {
     PartShape res;
-    res.m_modelName = "2in_2out/2in_2out.pdmodel";
+    res.m_modelName = "2in_2out/2in_2out" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_tensorName = "inputX1";
     res.m_oldPartialShape = PartialShape{1, 1, 3, 3};
     res.m_newPartialShape = PartialShape{2, 1, 3, 3};
@@ -22,7 +22,7 @@ static PartShape getTestShape_2in_2out() {
 
 static PartShape getTestShape_2in_2out_dynbatch() {
     PartShape res;
-    res.m_modelName = "2in_2out_dynbatch/2in_2out_dynbatch.pdmodel";
+    res.m_modelName = "2in_2out_dynbatch/2in_2out_dynbatch" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_tensorName = "inputX1";
     res.m_oldPartialShape = PartialShape{Dimension::dynamic(), 1, 3, 3};
     res.m_newPartialShape = PartialShape{2, 1, 3, 3};
@@ -31,7 +31,7 @@ static PartShape getTestShape_2in_2out_dynbatch() {
 
 static PartShape getTestShape_conv2d() {
     PartShape res;
-    res.m_modelName = "conv2d/conv2d.pdmodel";
+    res.m_modelName = "conv2d/conv2d" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_tensorName = "x";
     res.m_oldPartialShape = PartialShape{1, 3, 4, 4};
     res.m_newPartialShape = PartialShape{1, 3, 8, 8};
@@ -40,7 +40,7 @@ static PartShape getTestShape_conv2d() {
 
 static PartShape getTestShape_conv2d_setDynamicBatch() {
     PartShape res;
-    res.m_modelName = "conv2d/conv2d.pdmodel";
+    res.m_modelName = "conv2d/conv2d" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_tensorName = "x";
     res.m_oldPartialShape = PartialShape{1, 3, 4, 4};
     res.m_newPartialShape = PartialShape{Dimension::dynamic(), 3, 8, 8};
@@ -49,7 +49,7 @@ static PartShape getTestShape_conv2d_setDynamicBatch() {
 
 static PartShape getTestShape_conv2d_relu() {
     PartShape res;
-    res.m_modelName = "conv2d_relu/conv2d_relu.pdmodel";
+    res.m_modelName = "conv2d_relu/conv2d_relu" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_tensorName = "xxx";
     res.m_oldPartialShape = PartialShape{1, 3, 4, 4};
     res.m_newPartialShape = PartialShape{5, 3, 5, 5};

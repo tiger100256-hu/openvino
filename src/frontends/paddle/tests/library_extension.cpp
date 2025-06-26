@@ -14,7 +14,7 @@ static FrontendLibraryExtensionTestParams getTestData() {
     FrontendLibraryExtensionTestParams params;
     params.m_frontEndName = PADDLE_FE;
     params.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    params.m_modelName = "relu/relu.pdmodel";
+    params.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     return params;
 }
 

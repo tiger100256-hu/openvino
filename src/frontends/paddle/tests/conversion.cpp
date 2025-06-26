@@ -41,7 +41,7 @@ static ConversionExtensionFEParam getTestData() {
     ConversionExtensionFEParam res;
     res.m_frontEndName = PADDLE_FE;
     res.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    res.m_modelName = "relu/relu.pdmodel";
+    res.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     res.m_translatorName = translator_name;
     res.m_frontend = std::make_shared<PaddleFrontendWrapper>();
     return res;

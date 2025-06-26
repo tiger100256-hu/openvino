@@ -70,6 +70,7 @@ endif()
 
 set(TEST_PADDLE_MODELS_DIRNAME ${TEST_MODEL_ZOO}/paddle_test_models/${PDVTAG})
 target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODELS_DIRNAME=\"${TEST_PADDLE_MODELS_DIRNAME}/\")
+target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODEL_EXT=\"${TEST_PADDLE_MODEL_EXT}/\")
 
 # If 'paddlepaddle' is not found, code will still be compiled, but models will not be generated and tests will fail
 # This is done this way for 'code style' and check cases - cmake shall pass, but CI machine doesn't need to have

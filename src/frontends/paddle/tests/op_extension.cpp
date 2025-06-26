@@ -57,7 +57,7 @@ static OpExtensionFEParam getTestDataOpExtensionViaUserClass() {
     OpExtensionFEParam res;
     res.m_frontEndName = PADDLE_FE;
     res.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    res.m_modelName = "relu/relu.pdmodel";
+    res.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     // use core OpExtension
     res.m_extensions = std::vector<std::shared_ptr<ov::Extension>>{std::make_shared<ov::OpExtension<Relu1>>(),
                                                                    std::make_shared<ov::OpExtension<Relu2>>(),
@@ -70,7 +70,7 @@ static OpExtensionFEParam getTestDataOpExtensionViaPaddleConstructor() {
     OpExtensionFEParam res;
     res.m_frontEndName = PADDLE_FE;
     res.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    res.m_modelName = "relu/relu.pdmodel";
+    res.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     // use ov::frontend::paddle OpExtension
     res.m_extensions = std::vector<std::shared_ptr<ov::Extension>>{
         std::make_shared<ov::frontend::paddle::OpExtension<>>("CustomRelu_5",
@@ -111,7 +111,7 @@ static OpExtensionFEParam getTestDataOpExtensionViaCommonConstructor() {
     OpExtensionFEParam res;
     res.m_frontEndName = PADDLE_FE;
     res.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    res.m_modelName = "relu/relu.pdmodel";
+    res.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     // use ov::frontend::OpExtension
     res.m_extensions = std::vector<std::shared_ptr<ov::Extension>>{
         std::make_shared<ov::frontend::OpExtension<>>("CustomRelu_9",
@@ -168,7 +168,7 @@ TEST(FrontEndOpExtensionTest, paddle_opextension_relu) {
     const auto extensions = std::vector<std::shared_ptr<ov::Extension>>{std::make_shared<ov::OpExtension<Relu1>>()};
     core.add_extension(extensions);
     std::string m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    std::string m_modelName = "relu/relu.pdmodel";
+    std::string m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     auto model = core.read_model(FrontEndTestUtils::make_model_path(m_modelsPath + m_modelName));
     bool has_relu = false;
     for (const auto& op : model->get_ops()) {

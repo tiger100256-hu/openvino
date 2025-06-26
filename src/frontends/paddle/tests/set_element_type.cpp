@@ -14,7 +14,7 @@ static SetTypeFEParam getTestData_relu() {
     SetTypeFEParam res;
     res.m_frontEndName = PADDLE_FE;
     res.m_modelsPath = std::string(TEST_PADDLE_MODELS_DIRNAME);
-    res.m_modelName = "relu/relu.pdmodel";
+    res.m_modelName = "relu/relu" + std::string(TEST_PADDLE_MODEL_EXT);
     return res;
 }
 
