@@ -148,6 +148,11 @@ ov::Any decode_attr(const nlohmann::json& attr) {
         return ov::Any(decode_simple_attr_value<std::string>(attr_type));
     } else if (attr_type_name  == "a_f32") {
         return ov::Any(decode_simple_attr_value<float>(attr_type));
+    } else if (attr_type_name  == "a_f64") {
+        return ov::Any(decode_simple_attr_value<double>(attr_type));
+    } else if (attr_type_name  == "a_dtype") {
+        std::string dtype_str = decode_simple_attr_value<std::string>(attr_type);
+        return ov::Any(convert_to_ov_type_from_str(dtype_str));
     } else if (attr_type_name  == "a_array") {
         return ov::Any(decode_vector_attrs(attr_type));
     }  else {
@@ -171,6 +176,18 @@ ov::element::Type convert_to_ov_type(TypeType type) {
     OPENVINO_ASSERT(it != type_map.end(), "Cannot convert PDPD type to ov::element::Type");
     return it->second;
 }
+ov::element::Type convert_to_ov_type_from_str(const std::string& type) {
+    static const std::map<std::string, ov::element::Type> type_map{
+        {"int16", ov::element::i16},
+        {"int32", ov::element::i32},
+        {"float32", ov::element::f32},
+        {"float64", ov::element::f64},
+        {"int64", ov::element::i64}};
+    auto it = type_map.find(type);
+    OPENVINO_ASSERT(it != type_map.end(), "Cannot convert PDPD str ",  type, " to ov::element::Type");
+    return it->second;
+}
+
 }  // namespace json
 }  // namespace paddle
 }  // namespace frontend

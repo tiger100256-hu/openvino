@@ -64,6 +64,20 @@ bool is_pdmodel(const std::basic_string<wchar_t>& path) {
 #endif
 
 template <typename T>
+bool is_json_model(const std::basic_string<T>& path) {
+    std::string ext = ".json";
+    return ov::util::ends_with(path, ext);
+}
+
+#if defined(OPENVINO_ENABLE_UNICODE_PATH_SUPPORT) && defined(_WIN32)
+template <>
+bool is_json_model(const std::basic_string<wchar_t>& path) {
+    std::wstring ext = L".json";
+    return ov::util::ends_with(path, ext);
+}
+#endif
+
+template <typename T>
 std::basic_string<T> get_json_model_path(const std::basic_string<T>& path, std::ifstream* weights_stream) {
     std::string model_file{path};
     std::string ext = ".json";

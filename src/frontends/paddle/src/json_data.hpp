@@ -49,6 +49,7 @@ public:
    std::string name;
    std::string type;
    std::vector<uint64_t> inputIds;
+   std::set<uint64_t> unusedInputIds;
    std::vector<Port> outputPorts;
    bool is_distributed = false;
    bool is_parameter = false;
@@ -100,6 +101,7 @@ std::vector<T> decode_vector_attrs_value(const nlohmann::json& attrs) {
 ov::Any decode_vector_attrs(const nlohmann::json& attrs);
 ov::Any decode_attr(const nlohmann::json& attr);
 ov::element::Type convert_to_ov_type(TypeType type);
+ov::element::Type convert_to_ov_type_from_str(const std::string& type);
 }  // namespace json
 }  // namespace paddle
 }  // namespace frontend

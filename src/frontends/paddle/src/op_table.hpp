@@ -16,7 +16,8 @@ namespace paddle {
 using CreatorFunction = std::function<NamedOutputs(const NodeContext&)>;
 
 std::map<std::string, CreatorFunction> get_supported_ops();
-
+const std::string& get_input_name_by_op_type(const std::string& type, size_t index);
+const std::vector<std::string>& get_output_name_by_op_type(const std::string& type);
 }  // namespace paddle
 }  // namespace frontend
 }  // namespace ov

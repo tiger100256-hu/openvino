@@ -3,5 +3,6 @@
 #
 
 add_subdirectory(standalone_build)
+add_subdirectory(pd2model_test)
 add_subdirectory(pd3model_test)
-#add_subdirectory(pd2model_test)
+add_dependencies(paddle_test_models_pd3 paddle_test_models_pd2)

@@ -49,10 +49,11 @@ static bool ends_with(const std::string& value, const std::string& ending) {
 }
 
 static std::string getModelFolder(const std::string& modelFile) {
-    if (!ends_with(modelFile, ".pdmodel"))
-        return modelFile;
-    size_t found = modelFile.find_last_of("/\\");
-    return modelFile.substr(0, found);
+    if (ends_with(modelFile, ".pdmodel") || ends_with(modelFile, ".json")) {
+        size_t found = modelFile.find_last_of("/\\");
+        return modelFile.substr(0, found);
+    }
+    return modelFile;
 };
 
 void FrontEndFuzzyOpTest::runConvertedModel(const std::shared_ptr<ov::Model> model, const std::string& modelFile) {

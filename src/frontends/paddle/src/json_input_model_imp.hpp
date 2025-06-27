@@ -58,7 +58,11 @@ public:
                             '"');
     FRONT_END_GENERAL_CHECK(m_fw_ptr->ParseFromIstream(pb_stream), "Model can't be parsed");
     load_places();
-    load_consts(&weights_stream);
+    if (is_json_model(path)) {
+        load_consts(&weights_stream);
+    } else {
+        load_consts(path);
+    }
     create_temp_consts();
     }
 

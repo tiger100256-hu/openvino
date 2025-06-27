@@ -28,7 +28,15 @@ Output<Node> idx_node(const std::string& tensor_alias,
 }
 NamedOutputs slice_op(const NodeContext& node, const bool& stride_input) {
     const auto data = node.get_input("Input");
-    const auto axes = node.get_attribute<std::vector<int32_t>>("axes");
+    std::vector<int32_t> axes;
+    if (node.is_json_format()) {
+        auto axes_64 = node.get_attribute<std::vector<int64_t>>("axes");
+        for (auto& item : axes_64) {
+            axes.push_back(item);
+        }
+    } else {
+        axes = node.get_attribute<std::vector<int32_t>>("axes");
+    }
 
     Output<Node> start_idx_node = idx_node("StartsTensor", "StartsTensorList", "starts", node);
     Output<Node> end_idx_node = idx_node("EndsTensor", "EndsTensorList", "ends", node);
@@ -42,7 +50,16 @@ NamedOutputs slice_op(const NodeContext& node, const bool& stride_input) {
     const auto axes_node = default_opset::Constant::create(element::i32, {axes.size()}, axes);
     const auto slice_node =
         std::make_shared<default_opset::Slice>(data, start_idx_node, end_idx_node, strides_idx_node, axes_node);
-    const auto decrease_axis = node.get_attribute<std::vector<int32_t>>("decrease_axis");
+    std::vector<int32_t> decrease_axis;
+    if (node.is_json_format()) {
+        auto decrease_axis_64 = node.get_attribute<std::vector<int64_t>>("decrease_axis");
+        for (auto& item : decrease_axis_64) {
+            decrease_axis.push_back(item);
+        }
+    } else {
+        decrease_axis = node.get_attribute<std::vector<int32_t>>("decrease_axis");
+    }
+
     if (decrease_axis.size() > 0) {
         PartialShape input_shape = data.get_partial_shape();
         PADDLE_OP_CHECK(node,

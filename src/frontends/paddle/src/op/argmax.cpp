@@ -4,6 +4,7 @@
 
 #include "openvino/frontend/paddle/node_context.hpp"
 #include "openvino/opsets/opset6.hpp"
+#include <cassert>
 
 namespace ov {
 namespace frontend {
@@ -16,7 +17,17 @@ NamedOutputs argmax(const NodeContext& node) {
     const Output<ov::Node> k = ov::opset6::Constant::create(dtype, {}, {1});
 
     if (!flatten) {
-        auto axis = node.get_attribute<int64_t>("axis");
+        int64_t axis;
+        if (node.is_json_format()) {
+            auto full = node.get_input("full");
+            auto axis_node = full.get_node_shared_ptr();
+            auto axis_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(axis_node);
+            auto axis_value_vector = axis_const->get_vector<int64_t>();
+            assert(axis_value_vector.size() == 1);
+            axis = axis_value_vector[0];
+        } else {
+            axis = node.get_attribute<int64_t>("axis");
+        }
         const auto axis_to_remove = ov::opset6::Constant::create(element::u64, Shape{}, {axis});
         auto node_topk = std::make_shared<ov::opset6::TopK>(data, k, axis, "max", "index", dtype);
         const auto reshaped_indices = std::make_shared<ov::opset6::Squeeze>(node_topk->output(1), axis_to_remove);

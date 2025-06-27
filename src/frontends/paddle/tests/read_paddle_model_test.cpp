@@ -26,6 +26,9 @@ TEST(Paddle_Reader_Tests, LoadModelMemoryToCore) {
     ov::Core core;
     auto read_file = [&](const std::string& file_name, size_t& size) {
         FILE* sFile = fopen(file_name.c_str(), "r");
+        if(sFile == nullptr) {
+            return (uint8_t*)nullptr;
+        }
         fseek(sFile, 0, SEEK_END);
         size = ftell(sFile);
         uint8_t* ss = (uint8_t*)malloc(size);
@@ -40,7 +43,9 @@ TEST(Paddle_Reader_Tests, LoadModelMemoryToCore) {
 
     size_t xml_size, bin_size;
     auto xml_ptr = read_file(model, xml_size);
+    ASSERT_TRUE(xml_ptr != nullptr) << "can't open " << model;
     auto bin_ptr = read_file(param, bin_size);
+    ASSERT_TRUE(bin_ptr != nullptr) << "can't open " << param;
     ov::Tensor weight_tensor = ov::Tensor(ov::element::u8, {1, bin_size}, bin_ptr);
     std::string model_str = std::string((char*)xml_ptr, xml_size);
     auto function = core.read_model(model_str, weight_tensor);
