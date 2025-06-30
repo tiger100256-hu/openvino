@@ -113,6 +113,9 @@ void JsonInputModelImpl::load_places() {
            }
         }
     }
+    // reverse inputs for input params of models
+    std::reverse(m_inputs.begin(), m_inputs.end());
+
     if (m_telemetry) {
         for (const auto& op : op_statistics) {
             m_telemetry->send_event("op_count", "paddle_" + op.first, static_cast<int>(op.second));
@@ -254,8 +257,8 @@ void JsonInputModelImpl::create_temp_consts() {
             if (op.type == "full_int_array") {
                 auto value = decoder->get_attribute("value").as<std::vector<int64_t>>();
                 for (auto& port : op.outputPorts) {
-                    auto type = convert_to_ov_type(port.precision);
-                    auto shape = ov::Shape(port.shapes);
+                    auto type = convert_to_ov_type(port.get_precision());
+                    auto shape = ov::Shape(port.get_shapes());
                     auto const_node = opset7::Constant::create(type, shape, (int8_t*)(&value[0]));
                     auto port_name = std::to_string(port.id);
                     const_node->set_friendly_name(port_name);
@@ -265,8 +268,8 @@ void JsonInputModelImpl::create_temp_consts() {
             } else if (op.type == "full") {
                 auto value = decoder->get_attribute("value").as<double>();
                 for (auto& port : op.outputPorts) {
-                    auto type = convert_to_ov_type(port.precision);
-                    auto shape = ov::Shape(port.shapes);
+                    auto type = convert_to_ov_type(port.get_precision());
+                    auto shape = ov::Shape(port.get_shapes());
                     auto const_node = std::make_shared<ov::op::v0::Constant>(type, shape);
                     const_node->fill_data(type, value);
                     auto port_name = std::to_string(port.id);

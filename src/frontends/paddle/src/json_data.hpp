@@ -33,14 +33,31 @@ enum TypeType {
     DTENSOR,
     VEC
 };
-struct Port {
-   uint64_t id = 0;
-   std::string type;
+
+struct PortDesc {
    TypeType precision;
-   std::vector<size_t> shapes;
+   std::vector<int64_t> shapes;
    std::string layout;
    std::vector<std::vector<size_t>> lod;
    uint64_t offset = 0;
+};
+
+struct Port {
+   uint64_t id = 0;
+   std::string type;
+   std::vector<PortDesc> descs;
+   TypeType get_precision() const {
+      assert(descs.size() >= 1);
+      return descs[0].precision;
+   }
+   const std::vector<int64_t>& get_shapes()  const{
+      assert(descs.size() >= 1);
+      return descs[0].shapes;
+   }
+   const std::string& get_layout() const {
+      assert(descs.size() >= 1);
+      return descs[0].layout;
+   }
    bool used = false;
 };
 class OP {
@@ -83,6 +100,7 @@ void decodeOP(const nlohmann::json& json, OP& op);
 void decodeConst(const nlohmann::json& json, OP& op);
 void decodeOutPorts(const nlohmann::json& json, OP& op);
 void decodePort(const nlohmann::json& json, Port& port);
+void decodePortDesc(const nlohmann::json& json, PortDesc& desc);
 template<typename T>
 T decode_simple_attr_value(const nlohmann::json& json) {
     return json.at("D").template get<T>();

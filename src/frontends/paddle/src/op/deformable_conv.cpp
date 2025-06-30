@@ -11,8 +11,14 @@ namespace paddle {
 namespace op {
 NamedOutputs deformable_conv(const NodeContext& node) {
     auto input = node.get_input("Input");
+    auto tmp_node = input.get_node_shared_ptr();
+    std::cout << tmp_node->get_shape() << std::endl;
     auto filter = node.get_input("Filter");
+    tmp_node = filter.get_node_shared_ptr();
+    std::cout << tmp_node->get_shape() << std::endl;
     auto offset = node.get_input("Offset");
+    tmp_node = offset.get_node_shared_ptr();
+    std::cout << tmp_node->get_shape() << std::endl;
 
     auto strides = node.get_attribute<std::vector<int>>("strides");
     auto dilations = node.get_attribute<std::vector<int>>("dilations");

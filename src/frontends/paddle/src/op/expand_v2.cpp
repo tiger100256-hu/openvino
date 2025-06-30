@@ -15,6 +15,12 @@ NamedOutputs expand_v2(const NodeContext& node) {
     Output<Node> shape_expected_node;
     if (node.has_input("Shape")) {
         shape_expected_node = node.get_input("Shape");
+        if (node.is_json_format()) {
+            auto shape_node = shape_expected_node.get_node_shared_ptr();
+            auto shape_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(shape_node);
+            auto shape_value_vector = shape_const->cast_vector<int32_t>();
+            shape_expected_node = Constant::create(element::i32, {shape_value_vector.size()}, shape_value_vector);
+        }
     } else if (node.has_input("expand_shapes_tensor")) {
         auto inputs = node.get_ng_inputs("expand_shapes_tensor");
         ov::NodeVector node_vec;

@@ -15,7 +15,14 @@ NamedOutputs assign_value(const NodeContext& node) {
 
     switch (dtype) {
     case element::i32: {
-        if (node.has_attribute("int32_values")) {
+        if (node.is_json_format()) {
+            auto values = node.get_attribute<std::vector<double>>("values");
+            std::vector<int32_t> int32_values(values.size());
+            std::transform(values.begin(), values.end(), int32_values.begin(), [](double v) {
+                return static_cast<int32_t>(v);
+            });
+            const_node = {opset6::Constant::create(dtype, Shape{shape.begin(), shape.end()}, int32_values)};
+        } else if (node.has_attribute("int32_values")) {
             auto values = node.get_attribute<std::vector<int32_t>>("int32_values");
             const_node = {opset6::Constant::create(dtype, Shape{shape.begin(), shape.end()}, values)};
         } else {

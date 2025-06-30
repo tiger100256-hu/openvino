@@ -4,6 +4,7 @@
 
 #include "openvino/frontend/paddle/node_context.hpp"
 #include "openvino/opsets/opset6.hpp"
+#include <cassert>
 
 namespace ov {
 namespace frontend {
@@ -16,8 +17,19 @@ NamedOutputs dropout(const NodeContext& node) {
                     (dropout_implementation == "downgrade_in_infer" || dropout_implementation == "upscale_in_train"),
                     "Unsupported dropout mode!");
     if (dropout_implementation == "downgrade_in_infer") {
+        float dropout_prob_value = 0;
+        if (node.is_json_format()) {
+            auto full = node.get_input("full");
+            auto dropout_prob_node = full.get_node_shared_ptr();
+            auto dropout_prob_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(dropout_prob_node);
+            auto dropout_prob_value_vector = dropout_prob_const->get_vector<float>();
+            assert(dropout_prob_value_vector.size() == 1);
+            dropout_prob_value = dropout_prob_value_vector[0];
+        } else {
+            dropout_prob_value = node.get_attribute<float>("dropout_prob");
+        }
         auto dropout_prob =
-            ov::opset6::Constant::create(ov::element::f32, {1}, {1 - node.get_attribute<float>("dropout_prob")});
+            ov::opset6::Constant::create(ov::element::f32, {1}, {1 - dropout_prob_value});
         return node.default_single_output_mapping({std::make_shared<ov::opset6::Multiply>(data, dropout_prob)},
                                                   {"Out"});
     } else {

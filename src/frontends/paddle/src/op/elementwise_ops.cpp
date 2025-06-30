@@ -71,7 +71,7 @@ NamedOutputs elementwise_floordiv(const NodeContext& node_context) {
     int64_t pd_version = node_context.get_version();
 
     bool python_div = false;
-    if (pd_version >= 2005000 || pd_version == 0) {
+    if (pd_version >= 2005000 || pd_version == 0 || pd_version == 1) {
         python_div = true;
     }
     x = get_tensor_safe(x);

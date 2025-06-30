@@ -22,10 +22,12 @@ namespace paddle {
 using namespace ::paddle::framework;
 
 ov::Any DecoderJson::get_attribute(const std::string& name) const {
+    // some attribute name is already changed in 3.0, so use new name to get attributes;
     static const std::map<std::string, std::map<std::string, std::string>> attr_name_map = {
         {"batch_norm_", {{"data_layout", "data_format"}}},
         {"cast", {{"out_dtype", "dtype"}}},
-        {"pool3d", {{"ksize", "kernel_size"}}}
+        {"pool3d", {{"ksize", "kernel_size"}}},
+        {"dropout", {{"dropout_implementation", "mode"}}}
         };
     auto& op = op_place.lock()->get_op();
     std::string new_name = name;
@@ -118,7 +120,7 @@ std::map<std::string, std::vector<ov::element::Type>> DecoderJson::get_output_ty
     auto& op = get_place()->get_op();
     std::map<std::string, std::vector<ov::element::Type>> output_types;
     for (const auto& outputport : op.outputPorts) {
-        output_types[std::to_string(outputport.id)].push_back(json::convert_to_ov_type(outputport.precision));
+        output_types[std::to_string(outputport.id)].push_back(json::convert_to_ov_type(outputport.get_precision()));
     }
     return output_types;
 }
@@ -137,8 +139,8 @@ std::vector<std::pair<ov::element::Type, ov::PartialShape>> DecoderJson::get_out
         }
     }
     for (const auto& outputport : op.outputPorts) {
-        output_types.push_back({json::convert_to_ov_type(outputport.precision),
-                ov::PartialShape(outputport.shapes)});
+        output_types.push_back({json::convert_to_ov_type(outputport.get_precision()),
+                ov::PartialShape(outputport.get_shapes())});
     }
     if (index > output_types.size() -1 ) {
        FRONT_END_GENERAL_CHECK(false, "can't find ouput name ", port_name);

@@ -95,53 +95,84 @@ public:
 private:
     void load_places();
     template <typename T>
-        void load_consts(const std::basic_string<T>& folder_with_weights){
-            for (const auto& item : m_var_places) {
-                const auto& port = std::dynamic_pointer_cast<JsonTensorPlace>(item.second)->get_port();
-                const auto& name = item.first;
-                if (ov::util::ends_with(name, std::string{"data"}) || ov::util::ends_with(name, std::string{"fetch"}))
-                    continue;
-                //if (!var_desc.persistable())
-                //    continue;
+    void load_consts(const std::basic_string<T>& folder_with_weights){
+        std::set<std::string> param_names_set;
+        for (const auto& block_op_places : m_op_places) {
+               for (const auto& op_place : block_op_places) {
+                   const auto& op = std::dynamic_pointer_cast<JsonOpPlace>(op_place)->get_op();
+                   const auto& name = op.name;
+                   //if (ov::util::ends_with(name, std::string{"data"}) || ov::util::ends_with(name, std::string{"fetch"}))
+                   //    continue;
 
-                // FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
-                // const auto& tensor = var_desc.type().lod_tensor().tensor();
-                Shape shape(port.shapes);
-                const auto& type = convert_to_ov_type(port.precision);
-                const auto& data_length = shape_size(shape) * type.size();
-                std::vector<uint8_t> tensor_data(data_length);
+                   // var_desc.persistable() is used to mark node const value or not.
+                   if (!op.is_parameter)
+                      continue;
+                   std::cout << "op.name:" << op.name << "op.type:" << op.type << std::endl;
+                   param_names_set.insert(name);
+               }
+           }
+           for (auto& name : param_names_set) {
+               if (!folder_with_weights.empty()) {
+               #if defined(__MINGW32__) || defined(__MINGW64__)
+                   std::ifstream is(std::filesystem::path(get_const_path(folder_with_weights, name)),
+                                    std::ios::in | std::ifstream::binary);
+               #else
+                   std::ifstream is(get_const_path(folder_with_weights, name), std::ios::in | std::ifstream::binary);
+               #endif
+                   FRONT_END_GENERAL_CHECK(is && is.is_open(), "Cannot open file for constant value.");
+               auto* weight_stream = &is; // FRONT_END_GENERAL_CHECK(var_desc.type().type() == ::paddle::framework::proto::VarType::LOD_TENSOR);
+               FRONT_END_GENERAL_CHECK(weight_stream != nullptr&& weight_stream->peek() != EOF,
+                                       "PaddlePaddle *.pdiparams format weight file doesn't exist!");
+               /*
+                   reference:
+                   https://github.com/PaddlePaddle/Paddle2ONNX/blob/c14446437041a0aa3572994d085b7a35c5b0985c/paddle2onnx/parser/parser.cc#L261
+                   When deserialize the proto, the header of each weight
+                   [ 4 byte ]      -- version(not need)
+                   [   8 byte   ]  -- lod_level(not need)
+                   [ 4 byte ]      -- version(not need)
+                   [ 4 byte ]      -- TensorDesc size
+                   [ x byte ... ]  -- TensorDesc
+                   [ y byte ... ]  -- weight
+               */
+               {
+                   const size_t header_size = 16;
+                   std::vector<char> header(header_size);
+                   weight_stream->read(&header[0], header_size);
+               }
 
-                bool read_succeed = false;
-                if (!folder_with_weights.empty()) {
-#if defined(__MINGW32__) || defined(__MINGW64__)
-                    std::ifstream is(std::filesystem::path(get_const_path(folder_with_weights, name)),
-                            std::ios::in | std::ifstream::binary);
-#else
-                    std::ifstream is(get_const_path(folder_with_weights, name), std::ios::in | std::ifstream::binary);
-#endif
-                    FRONT_END_GENERAL_CHECK(is && is.is_open(), "Cannot open file for constant value.");
-                    const size_t header_size = 16;
-                    std::vector<char> header(header_size);
-                    is.read(&header[0], header_size);
+               int32_t size;
+               weight_stream->read(reinterpret_cast<char*>(&size), sizeof(size));
 
-                    uint32_t dims_len = 0;
-                    is.read(reinterpret_cast<char*>(&dims_len), 4);
-                    std::vector<char> dims_struct(dims_len);
-                    is.read(&dims_struct[0], dims_len);
-                    read_succeed = read_tensor(is, reinterpret_cast<char*>(&tensor_data[0]), data_length);
-                } else {
-                    FRONT_END_GENERAL_CHECK(false, "Folder with weights must be provided.");
-                }
-                FRONT_END_GENERAL_CHECK(read_succeed,
-                        "File containing constant with name ",
-                        name,
-                        " wasn't successfully read.");
-                auto const_node = opset7::Constant::create(type, shape, &tensor_data[0]);
-                const_node->set_friendly_name(name);
-                m_tensor_values[name] = const_node;
+               std::unique_ptr<char[]> buf(new char[size]);
+               weight_stream->read(reinterpret_cast<char*>(buf.get()), size);
+
+               std::unique_ptr<::paddle::framework::proto::VarType_TensorDesc> tensor_desc(
+                   new ::paddle::framework::proto::VarType_TensorDesc());
+               tensor_desc->ParseFromArray(buf.get(), size);
+               Shape shape(tensor_desc->dims().cbegin(), tensor_desc->dims().cend());
+               const auto& type = get_ov_type(tensor_desc->data_type());
+               const auto& data_length = shape_size(shape) * type.size();
+               // std::cout << "name:" << name << " data_length:" << data_length << std::endl;
+               std::vector<uint8_t> tensor_data(data_length);
+
+               bool read_succeed = read_tensor(*weight_stream, reinterpret_cast<char*>(&tensor_data[0]), data_length);
+               FRONT_END_GENERAL_CHECK(read_succeed,
+                                       "File containing constant with name ",
+                                       name,
+                                       " wasn't successfully read.");
+
+               auto const_node = opset7::Constant::create(type, shape, &tensor_data[0]);
+               // if (shape_size(shape) > 8 * 2) {
+               //     auto* data = (float*)(&tensor_data[0]);
+               //     float a  = *data;
+               //     float b  = *(data + 1);
+               //     std::cout << " "  << a << " " << b << std::endl;
+               // }
+               const_node->set_friendly_name(name);
+               m_tensor_values[m_const_name_to_id_map[name]] = const_node;
             }
         }
-
+    }
     void load_consts(std::istream* weight_stream);
     void create_temp_consts();
     std::vector<std::shared_ptr<BaseOpPlace>> determine_cut_nodes() const;

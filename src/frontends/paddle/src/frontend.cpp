@@ -64,6 +64,7 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
 
         auto creator_it = CREATORS_MAP.find(op_desc.type());
         FRONT_END_OP_CONVERSION_CHECK(creator_it != CREATORS_MAP.end(), "No creator found for ", op_desc.type(), " node.");
+        std::cout << "op.type()" << op_desc.type() << std::endl;
         NamedInputs named_inputs;
         for (const auto& input_port : op_desc.inputs()) {
             for (const auto& in_tensor_name : input_port.arguments()) {
@@ -345,8 +346,8 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
         } else if (const auto& json_place = std::dynamic_pointer_cast<JsonTensorPlace>(_inp_place)) {
             const auto& port = json_place->get_port();
             const auto& port_name = std::to_string(port.id);
-            const auto shape =  ov::PartialShape(port.shapes);
-            const auto type = json::convert_to_ov_type(port.precision);
+            const auto shape =  ov::PartialShape(port.get_shapes());
+            const auto type = json::convert_to_ov_type(port.get_precision());
             auto param = std::make_shared<Parameter>(type, shape);
             param->set_friendly_name(port_name);
             param->output(0).get_tensor().add_names({port_name});
@@ -371,7 +372,9 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                         const auto& tensor_name = op_desc.outputs().begin()->arguments()[0];
                         auto node = named_outputs.begin()->second[0].get_node_shared_ptr();
                         node->set_friendly_name(tensor_name);
+                        std::cout << "tensor_name:" << tensor_name << std::endl;
                     }
+
                     const auto& out_ports = op_desc.outputs();
                     for (const auto& port : out_ports) {
                         // TODO: figure a way to safely handle unused outputs
@@ -386,6 +389,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                                 // if nodes_dict already has node mapped to this tensor name it
                                 // usually means that it was overwritten using set_tensor_value
                                 nodes_dict[var_name] = ng_outputs[idx];
+                                std::cout << "var_name:" << var_name << std::endl;
                             }
                         }
                     }

@@ -65,21 +65,38 @@ void decodeOutPorts(const nlohmann::json& json, OP& op) {
         op.outputPorts.push_back(std::move(newPort));
     }
 }
-void decodePort(const nlohmann::json& json, Port& port) {
-    port.id = json.at("%").template get<uint64_t>();
-    auto& typeTypeJson  = json.at("TT");
-    port.type = typeTypeJson.at("#").template get<std::string>();
-    auto& data = typeTypeJson.at("D");
+
+void decodePortDesc(const nlohmann::json& json, PortDesc& desc) {
+    auto& data = json.at("D");
     auto precisionString = data.at(0).at("#").template get<std::string>();
     size_t pos = precisionString.find('.');
     if (pos != std::string::npos) {
         precisionString = precisionString.substr(pos + 1);
     }
-    port.precision = convertFromStringToType(precisionString);
-    port.shapes = data.at(1).template get<std::vector<size_t>>();
-    port.layout = data.at(2).template get<std::string>();
-    //port.lod = data.at(3).template get<std::vector<std::vector<size_t>>>(); // save it, maybe need in future
-    port.offset = data.at(4).template get<size_t>();// save it, maybe need in future
+    desc.precision = convertFromStringToType(precisionString);
+    desc.shapes = data.at(1).template get<std::vector<int64_t>>();
+    desc.layout = data.at(2).template get<std::string>();
+    //desc.lod = data.at(3).template get<std::vector<std::vector<size_t>>>(); // save it, maybe need in future
+    desc.offset = data.at(4).template get<size_t>();// save it, maybe need in future
+}
+void decodePort(const nlohmann::json& json, Port& port) {
+    port.id = json.at("%").template get<uint64_t>();
+    auto& typeTypeJson = json.at("TT");
+    auto port_type = typeTypeJson.at("#").template get<std::string>();
+    auto pos = port_type.find(".");
+    port.type = port_type.substr(pos + 1);
+    if (port.type == "t_vec") {
+        auto& data = typeTypeJson.at("D");
+        for (auto& portDescJson : data) {
+            PortDesc newPortDesc;
+            decodePortDesc(portDescJson, newPortDesc);
+            port.descs.push_back(std::move(newPortDesc));
+        }
+    } else {
+        PortDesc newPortDesc;
+        decodePortDesc(typeTypeJson, newPortDesc);
+        port.descs.push_back(std::move(newPortDesc));
+    }
 }
 TypeType convertFromStringToType(std::string type) {
   const static std::map<std::string, TypeType> map = {
@@ -125,6 +142,8 @@ ov::Any decode_vector_attrs(const nlohmann::json& attrs) {
             return ov::Any(decode_vector_attrs_value<std::string>(attrs));
         } else if (attr_type  == "a_f32") {
             return ov::Any(decode_vector_attrs_value<float>(attrs));
+        } else if (attr_type  == "a_f64") {
+            return ov::Any(decode_vector_attrs_value<double>(attrs));
         } else {
             FRONT_END_GENERAL_CHECK(false, "unsupport vector attr type:", attr_type);
             break;
