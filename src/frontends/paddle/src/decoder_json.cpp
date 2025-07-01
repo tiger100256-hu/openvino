@@ -27,7 +27,12 @@ ov::Any DecoderJson::get_attribute(const std::string& name) const {
         {"batch_norm_", {{"data_layout", "data_format"}}},
         {"cast", {{"out_dtype", "dtype"}}},
         {"pool3d", {{"ksize", "kernel_size"}}},
-        {"dropout", {{"dropout_implementation", "mode"}}}
+        {"dropout", {{"dropout_implementation", "mode"}}},
+        {"index_select", {{"dim", "axis"}}},
+        {"leaky_relu", {{"alpha", "negative_slope"}}},
+        {"matmul", {{"transpose_X", "transpose_x"}, {"transpose_Y", "transpose_y"}}},
+        {"max_pool2d_with_index", {{"ksize", "kernel_size"}}},
+        {"max_pool3d_with_index", {{"ksize", "kernel_size"}}},
         };
     auto& op = op_place.lock()->get_op();
     std::string new_name = name;
@@ -43,7 +48,14 @@ ov::Any DecoderJson::get_attribute(const std::string& name) const {
     for (auto& attr : attrs) {
         std::string attr_name = attr.at("N").template get<std::string>();
         if (attr_name == new_name) {
-            return json::decode_attr(attr);
+            auto result = json::decode_attr(attr);
+            return result;
+            // if (result.empty() && attr_name == "shape") {
+            //     std::cout << "warining the shape attr is null" << std::endl;
+            //     return ov::Any(std::vector<int32_t>{});
+            // } else {
+            //     return result;
+            // }
         }
     }
     return {};

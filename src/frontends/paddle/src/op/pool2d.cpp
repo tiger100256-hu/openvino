@@ -65,12 +65,13 @@ NamedOutputs pool2d(const NodeContext& node) {
     auto adaptive = node.get_attribute<bool>("adaptive");
     std::vector<int32_t> kernel_shape;
     if (node.is_json_format()) {
-        auto full_int_array = node.get_input("ksize");
-        auto ksize_op = full_int_array.get_node_shared_ptr();
-        auto ksize_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(ksize_op);
-        auto kernel_shape_64 = ksize_const->get_vector<int64_t>();
-        for (auto& value : kernel_shape_64) {
-            kernel_shape.push_back(value);
+        if (node.has_input("ksize")) {
+            auto full_int_array = node.get_input("ksize");
+            auto ksize_op = full_int_array.get_node_shared_ptr();
+            auto ksize_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(ksize_op);
+            kernel_shape = ksize_const->cast_vector<int32_t>();
+        } else {
+            kernel_shape = node.get_attribute<std::vector<int32_t>>("ksize");
         }
     } else {
         kernel_shape = node.get_attribute<std::vector<int32_t>>("ksize");

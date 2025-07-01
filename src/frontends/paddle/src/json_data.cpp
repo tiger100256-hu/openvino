@@ -199,12 +199,40 @@ ov::element::Type convert_to_ov_type_from_str(const std::string& type) {
     static const std::map<std::string, ov::element::Type> type_map{
         {"int16", ov::element::i16},
         {"int32", ov::element::i32},
+        {"int64", ov::element::i64},
+        {"float16", ov::element::f16},
         {"float32", ov::element::f32},
         {"float64", ov::element::f64},
-        {"int64", ov::element::i64}};
+        {"bool", ov::element::boolean}
+    };
     auto it = type_map.find(type);
     OPENVINO_ASSERT(it != type_map.end(), "Cannot convert PDPD str ",  type, " to ov::element::Type");
     return it->second;
+}
+
+TypeType Port::get_precision() const {
+   assert(descs.size() >= 1);
+   return descs[0].precision;
+}
+
+const std::vector<int64_t>& Port::get_shapes() const {
+   assert(descs.size() >= 1);
+   return descs[0].shapes;
+}
+
+const std::vector<size_t> Port::get_static_shapes() const {
+    assert(descs.size() >= 1);
+    std::vector<size_t> static_shapes(descs[0].shapes.size());
+    std::transform(descs[0].shapes.begin(), descs[0].shapes.end(), static_shapes.begin(), [](int64_t v) {
+        assert(v >= 0);
+        return static_cast<size_t>(v);
+    });
+    return static_shapes;
+}
+
+const std::string& Port::get_layout() const {
+   assert(descs.size() >= 1);
+   return descs[0].layout;
 }
 
 }  // namespace json

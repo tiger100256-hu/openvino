@@ -46,18 +46,10 @@ struct Port {
    uint64_t id = 0;
    std::string type;
    std::vector<PortDesc> descs;
-   TypeType get_precision() const {
-      assert(descs.size() >= 1);
-      return descs[0].precision;
-   }
-   const std::vector<int64_t>& get_shapes()  const{
-      assert(descs.size() >= 1);
-      return descs[0].shapes;
-   }
-   const std::string& get_layout() const {
-      assert(descs.size() >= 1);
-      return descs[0].layout;
-   }
+   TypeType get_precision() const;
+   const std::vector<int64_t>& get_shapes() const;
+   const std::vector<size_t> get_static_shapes() const;
+   const std::string& get_layout() const;
    bool used = false;
 };
 class OP {

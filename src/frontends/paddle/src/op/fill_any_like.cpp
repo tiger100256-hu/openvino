@@ -5,6 +5,7 @@
 #include "default_opset.hpp"
 #include "op_utils.hpp"
 #include "openvino/frontend/paddle/node_context.hpp"
+#include <cassert>
 
 namespace ov {
 namespace frontend {
@@ -13,7 +14,17 @@ namespace op {
 NamedOutputs fill_any_like(const NodeContext& node) {
     auto x = node.get_input("X");
     auto dtype = node.get_attribute<ov::element::Type>("dtype", element::dynamic);
-    const auto value = node.get_attribute<float>("value");
+    float value = 0;
+    if (node.is_json_format()) {
+        auto full = node.get_input("full");
+        auto value_node = full.get_node_shared_ptr();
+        auto value_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(value_node);
+        auto value_vector = value_const->cast_vector<float>();
+        assert(value_vector.size() == 1);
+        value = value_vector[0];
+    } else {
+        value = node.get_attribute<float>("value");
+    }
     if (dtype.is_dynamic()) {
         // when type does not define, use the input type
         dtype = x.get_element_type();

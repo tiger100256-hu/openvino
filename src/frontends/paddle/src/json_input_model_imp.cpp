@@ -258,7 +258,7 @@ void JsonInputModelImpl::create_temp_consts() {
                 auto value = decoder->get_attribute("value").as<std::vector<int64_t>>();
                 for (auto& port : op.outputPorts) {
                     auto type = convert_to_ov_type(port.get_precision());
-                    auto shape = ov::Shape(port.get_shapes());
+                    auto shape = ov::Shape(port.get_static_shapes());
                     auto const_node = opset7::Constant::create(type, shape, (int8_t*)(&value[0]));
                     auto port_name = std::to_string(port.id);
                     const_node->set_friendly_name(port_name);
@@ -269,7 +269,7 @@ void JsonInputModelImpl::create_temp_consts() {
                 auto value = decoder->get_attribute("value").as<double>();
                 for (auto& port : op.outputPorts) {
                     auto type = convert_to_ov_type(port.get_precision());
-                    auto shape = ov::Shape(port.get_shapes());
+                    auto shape = ov::Shape(port.get_static_shapes());
                     auto const_node = std::make_shared<ov::op::v0::Constant>(type, shape);
                     const_node->fill_data(type, value);
                     auto port_name = std::to_string(port.id);
