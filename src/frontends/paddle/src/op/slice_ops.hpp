@@ -30,9 +30,19 @@ NamedOutputs slice_op(const NodeContext& node, const bool& stride_input) {
     const auto data = node.get_input("Input");
     std::vector<int32_t> axes;
     if (node.is_json_format()) {
-        auto axes_64 = node.get_attribute<std::vector<int64_t>>("axes");
-        for (auto& item : axes_64) {
-            axes.push_back(item);
+        auto axes_any = node.get_attribute_as_any("axes");
+        if (axes_any.is<std::vector<int64_t>>()) {
+            auto axes_64 = axes_any.as<std::vector<int64_t>>();
+            axes.resize(axes_64.size());
+            std::transform(axes_64.begin(), axes_64.end(), axes.begin(), [](int64_t value) {
+                    return static_cast<int32_t>(value);
+                    });
+        } else if (axes_any.is<std::vector<int32_t>>()) {
+            axes = axes_any.as<std::vector<int32_t>>();
+        } else {
+            PADDLE_OP_CHECK(node,
+                    false,
+                    "axes format is not i32 or i64.");
         }
     } else {
         axes = node.get_attribute<std::vector<int32_t>>("axes");
@@ -52,7 +62,7 @@ NamedOutputs slice_op(const NodeContext& node, const bool& stride_input) {
         std::make_shared<default_opset::Slice>(data, start_idx_node, end_idx_node, strides_idx_node, axes_node);
     std::vector<int32_t> decrease_axis;
     if (node.is_json_format()) {
-        auto decrease_axis_64 = node.get_attribute<std::vector<int64_t>>("decrease_axis");
+        auto decrease_axis_64 = node.get_attribute<std::vector<int64_t>>("decrease_axis", {});
         for (auto& item : decrease_axis_64) {
             decrease_axis.push_back(item);
         }

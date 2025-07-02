@@ -422,7 +422,10 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     auto output_name = get_output_name_by_op_type(op.type);
                     size_t idx = 0;
                     for (const auto& port : op.outputPorts) {
-                        if (!port.used) continue;
+                        if (!port.used)  {
+                            idx++;
+                            continue;
+                        }
                         std::string port_name = std::to_string(port.id);
                         FRONT_END_OP_CONVERSION_CHECK(idx < output_name.size(), "idx is greater than output name size, idx:", idx);
                         auto it = named_outputs.find(output_name[idx]);

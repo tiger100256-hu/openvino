@@ -12,7 +12,12 @@ namespace op {
 NamedOutputs squeeze(const NodeContext& node) {
     auto data = node.get_input("X");
     std::vector<int32_t> axes;
-    if (node.has_attribute("axes")) {
+    if (node.is_json_format()) {
+        auto full = node.get_input("full");
+        auto axis_node = full.get_node_shared_ptr();
+        auto axis_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(axis_node);
+        axes = axis_const->cast_vector<int32_t>();
+    } else if (node.has_attribute("axes")) {
         axes = node.get_attribute<std::vector<int32_t>>("axes");
     }
 

@@ -40,7 +40,7 @@ NamedOutputs set_value(const NodeContext& node) {
     PADDLE_OP_CHECK(node, (input_node.get_partial_shape().rank().is_static()), "rank must be static");
     const auto dims = static_cast<int64_t>(input_node.get_partial_shape().rank().get_length());
     auto axes = node.get_attribute<std::vector<int64_t>>("axes");
-    auto decrease_axes = node.get_attribute<std::vector<int64_t>>("decrease_axes");
+    auto decrease_axes = node.get_attribute<std::vector<int64_t>>("decrease_axes", {});
 
     // const auto input_shape_ = input_node.get_partial_shape().get_shape();
     // auto input_shape = default_opset::Constant::create(element::i64, {input_shape_.size()}, input_shape_);

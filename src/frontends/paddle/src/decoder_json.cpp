@@ -43,8 +43,15 @@ ov::Any DecoderJson::get_attribute(const std::string& name) const {
         {"reduce_sum", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
         {"pow", {{"factor", "y"}}},
         {"transpose", {{"axis", "perm"}}},
+        {"softshrink", {{"lambda", "threshold"}}},
         };
     auto& op = op_place.lock()->get_op();
+    // workaroud for new tril and triu in paddle 3.0
+    if (op.type == "tril" && name == "lower") {
+        return ov::Any(true);
+    } else if (op.type == "triu" && name == "lower") {
+        return ov::Any(false);
+    }
     std::string new_name = name;
     auto op_it = attr_name_map.find(op.type);
     if (op_it != attr_name_map.end()) {

@@ -13,7 +13,7 @@ namespace op {
 NamedOutputs tril_triu(const NodeContext& node) {
     auto x = node.get_input("X");
     const int diagonal = node.get_attribute<int>("diagonal");
-    const auto lower = node.get_attribute<bool>("lower");
+    const auto lower = node.get_attribute<bool>("lower", false);
     PADDLE_OP_CHECK(node, x.get_partial_shape().rank().get_length() == 2, "partial ops only support 2-D Tensor");
 
     const auto diag_node = default_opset::Constant::create(element::i32, Shape{}, {diagonal});

@@ -60,9 +60,18 @@ NamedOutputs assign_value(const NodeContext& node) {
         break;
     }
     case element::i64: {
-        auto values = node.has_attribute("int64_values") ? node.get_attribute<std::vector<int64_t>>("int64_values")
-                                                         : node.get_attribute<std::vector<int64_t>>("values");
-        const_node = {opset6::Constant::create(dtype, Shape{shape.begin(), shape.end()}, values)};
+        if (node.is_json_format()) {
+            auto values = node.get_attribute<std::vector<double>>("values");
+            std::vector<int64_t> int64_values(values.size());
+            std::transform(values.begin(), values.end(), int64_values.begin(), [](double v) {
+                    return static_cast<int64_t>(v);
+                    });
+            const_node = {opset6::Constant::create(dtype, Shape{shape.begin(), shape.end()}, int64_values)};
+        } else {
+            auto values = node.has_attribute("int64_values") ? node.get_attribute<std::vector<int64_t>>("int64_values")
+                : node.get_attribute<std::vector<int64_t>>("values");
+            const_node = {opset6::Constant::create(dtype, Shape{shape.begin(), shape.end()}, values)};
+        }
         break;
     }
     default: {

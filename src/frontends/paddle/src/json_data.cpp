@@ -87,6 +87,9 @@ void decodePort(const nlohmann::json& json, Port& port) {
     port.id = json.at("%").template get<uint64_t>();
     auto& typeTypeJson = json.at("TT");
     auto port_type = typeTypeJson.at("#").template get<std::string>();
+    if (port_type == "NULL") {
+        return;
+    }
     auto pos = port_type.find(".");
     port.type = port_type.substr(pos + 1);
     if (port.type == "t_vec") {

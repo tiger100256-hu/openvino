@@ -15,7 +15,7 @@ NamedOutputs unique(const NodeContext& node) {
 
     std::vector<Output<Node>> outputs;
 
-    auto axis = node.get_attribute<std::vector<int32_t>>("axis");
+    auto axis = node.get_attribute<std::vector<int32_t>>("axis", {});
     auto dtype = node.get_attribute<ov::element::Type>("dtype");
 
     if (axis.size() != 0) {

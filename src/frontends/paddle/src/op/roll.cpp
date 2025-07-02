@@ -21,7 +21,7 @@ NamedOutputs roll(const NodeContext& node) {
         shifts_node = default_opset::Constant::create(element::i64, {shifts.size()}, shifts);
     }
 
-    std::vector<int64_t> axis = node.get_attribute<std::vector<int64_t>>("axis");
+    std::vector<int64_t> axis = node.get_attribute<std::vector<int64_t>>("axis", {});
     if (axis.empty()) {
         const auto const_minus_1 = default_opset::Constant::create(element::i64, Shape{1}, {-1});
         Output<Node> axis_node = default_opset::Constant::create(element::i64, Shape{1}, {0});
