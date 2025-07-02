@@ -21,7 +21,16 @@ NamedOutputs reduce_ops(const NodeContext& node) {
     std::vector<int64_t> dims(input_rank);
 
     auto any = node.get_attribute_as_any("dim");
-    if (any.is<std::vector<int32_t>>()) {
+    if (node.is_json_format() && any.empty()) {
+        if (node.has_input("full")) {
+            auto full = node.get_input("full");
+            auto axis_node = full.get_node_shared_ptr();
+            auto axis_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(axis_node);
+            dims = axis_const->cast_vector<int64_t>();
+        } else {
+            dims.resize(0);
+        }
+    } else if (any.is<std::vector<int32_t>>()) {
         auto dim = any.as<std::vector<int32_t>>();
         dims.resize(dim.size());
         std::transform(dim.begin(), dim.end(), dims.begin(), [](int32_t value) {

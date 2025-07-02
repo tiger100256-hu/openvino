@@ -255,7 +255,11 @@ void JsonInputModelImpl::create_temp_consts() {
             op_ptr->is_parameter = true;
             auto decoder = op_place->get_decoder();
             if (op.type == "full_int_array") {
-                auto value = decoder->get_attribute("value").as<std::vector<int64_t>>();
+                auto value_any = decoder->get_attribute("value");
+                auto value = std::vector<int64_t>{};
+                if (!value_any.empty()) {
+                    value = value_any.as<std::vector<int64_t>>();
+                }
                 for (auto& port : op.outputPorts) {
                     auto type = convert_to_ov_type(port.get_precision());
                     auto shape = ov::Shape(port.get_static_shapes());

@@ -31,6 +31,10 @@ void decodeOP(const nlohmann::json& json, OP& op) {
         size_t pos = op.type.find('.');
         if (pos != std::string::npos) {
             op.type = op.type.substr(pos + 1);
+            // the name sum is conflict with paddle 2.0 op sum
+            if (op.type == "sum") {
+                op.type = "reduce_sum";
+            }
         }
         auto& inputsJson = json.at("I");
         for (auto& inputJson : inputsJson) {

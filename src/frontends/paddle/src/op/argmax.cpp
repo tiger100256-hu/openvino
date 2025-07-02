@@ -22,7 +22,7 @@ NamedOutputs argmax(const NodeContext& node) {
             auto full = node.get_input("full");
             auto axis_node = full.get_node_shared_ptr();
             auto axis_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(axis_node);
-            auto axis_value_vector = axis_const->get_vector<int64_t>();
+            auto axis_value_vector = axis_const->cast_vector<int64_t>();
             assert(axis_value_vector.size() == 1);
             axis = axis_value_vector[0];
         } else {

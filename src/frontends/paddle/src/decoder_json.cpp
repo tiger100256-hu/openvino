@@ -33,6 +33,16 @@ ov::Any DecoderJson::get_attribute(const std::string& name) const {
         {"matmul", {{"transpose_X", "transpose_x"}, {"transpose_Y", "transpose_y"}}},
         {"max_pool2d_with_index", {{"ksize", "kernel_size"}}},
         {"max_pool3d_with_index", {{"ksize", "kernel_size"}}},
+        {"pad3d", {{"value", "pad_value"}}},
+        {"all", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        {"max", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        {"mean", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        {"min", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        {"prod", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        // the type name sum already replaced by reduce_sum when decode json
+        {"reduce_sum", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        {"pow", {{"factor", "y"}}},
+        {"transpose", {{"axis", "perm"}}},
         };
     auto& op = op_place.lock()->get_op();
     std::string new_name = name;
@@ -130,9 +140,14 @@ size_t DecoderJson::get_output_size() const {
 
 std::map<std::string, std::vector<ov::element::Type>> DecoderJson::get_output_type_map() const {
     auto& op = get_place()->get_op();
+    auto fix_output_name = get_output_name_by_op_type(op.type);
     std::map<std::string, std::vector<ov::element::Type>> output_types;
-    for (const auto& outputport : op.outputPorts) {
-        output_types[std::to_string(outputport.id)].push_back(json::convert_to_ov_type(outputport.get_precision()));
+    size_t index = 0;
+    for (auto& output_name : fix_output_name) {
+        FRONT_END_GENERAL_CHECK(index < op.outputPorts.size(), "output name num is not match port num");
+        auto& outputport = op.outputPorts[index];
+        output_types.insert({output_name, {json::convert_to_ov_type(outputport.get_precision())}});
+        index++;
     }
     return output_types;
 }

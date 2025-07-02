@@ -19,7 +19,14 @@ NamedOutputs pad3d(const NodeContext& node) {
 
     // padding of type int feature only supported by paddle 'develop'
     // version(>=2.1.0)
-    if (node.has_attribute("paddings")) {
+    if (node.is_json_format()) {
+        auto full = node.get_input("full");
+        auto pad_node = full.get_node_shared_ptr();
+        auto pad_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(pad_node);
+        auto pad_value_vector = pad_const->cast_vector<int32_t>();
+        PADDLE_OP_CHECK(node, pad_value_vector.size() == 6, "paddings Params size should be 6 in pad3d!");
+        paddings = pad_value_vector;
+    } else if (node.has_attribute("paddings")) {
         auto paddings_vector = node.get_attribute<std::vector<int32_t>>("paddings");
         PADDLE_OP_CHECK(node, paddings_vector.size() == 6, "paddings Params size should be 6 in pad3d!");
         paddings = paddings_vector;
