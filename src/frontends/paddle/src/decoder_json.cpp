@@ -39,6 +39,7 @@ ov::Any DecoderJson::get_attribute(const std::string& name) const {
         {"mean", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
         {"min", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
         {"prod", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
+        {"any", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
         // the type name sum already replaced by reduce_sum when decode json
         {"reduce_sum", {{"keep_dim", "keepdim"}, {"dim", "axis"}}},
         {"pow", {{"factor", "y"}}},

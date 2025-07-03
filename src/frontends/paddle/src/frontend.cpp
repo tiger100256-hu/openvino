@@ -423,12 +423,13 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     size_t idx = 0;
                     for (const auto& port : op.outputPorts) {
                         if (!port.used)  {
-                            idx++;
+                            if (op.type == "unique") idx++;
                             continue;
                         }
                         std::string port_name = std::to_string(port.id);
                         FRONT_END_OP_CONVERSION_CHECK(idx < output_name.size(), "idx is greater than output name size, idx:", idx);
                         auto it = named_outputs.find(output_name[idx]);
+                        std::cout << "port_name:" << port_name << "output_name[idx]:" << output_name[idx] << std::endl;
                         FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[0]);
                         const auto& ng_outputs = it->second;
                         FRONT_END_OP_CONVERSION_CHECK(0 < ng_outputs.size(), "idx is greater than output size, idx:", idx);
@@ -446,12 +447,14 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
             auto var = outp_place->get_desc();
             auto input_var_name = var.name();
             auto result = std::make_shared<Result>(nodes_dict.at(input_var_name));
+            std::cout << "input_var_name:" << input_var_name << std::endl;
             result->set_friendly_name(input_var_name + "/Result");
             result_nodes.push_back(result);
             output_nodes.push_back(nodes_dict.at(input_var_name));
         } else if (const auto& outp_place = std::dynamic_pointer_cast<JsonTensorPlace>(_outp_place)) {
             auto port = outp_place->get_port();
             auto input_var_name = std::to_string(port.id);
+            std::cout << "input_var_name:" << input_var_name << std::endl;
             auto result = std::make_shared<Result>(nodes_dict.at(input_var_name));
             result->set_friendly_name(input_var_name + "/Result");
             result_nodes.push_back(result);

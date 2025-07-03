@@ -39,13 +39,18 @@ public:
     /// Returns exactly one input with a given name; throws if there is no inputs or
     /// there are more than one input
     Output<Node> get_input(const std::string& name) const override {
-        FRONT_END_GENERAL_CHECK(name_map.at(name).size() == 1);
-        return name_map.at(name).at(0);
+        auto it = name_map.find(name);
+        FRONT_END_GENERAL_CHECK(it != name_map.end(), "can't find input name:", name );
+        auto& input = it->second;
+        FRONT_END_GENERAL_CHECK(input.size() == 1);
+        return input.at(0);
     }
 
     /// Returns all inputs with a given name
     OutputVector get_ng_inputs(const std::string& name) const {
-        return name_map.at(name);
+        auto it = name_map.find(name);
+        FRONT_END_GENERAL_CHECK(it != name_map.end(), "can't find input name:", name );
+        return it->second;
     }
 
     /// Returns all inputs in order they appear in map. This is used for FrameworkNode

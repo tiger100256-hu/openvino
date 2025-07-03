@@ -342,6 +342,8 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
             {"triu", op::tril_triu},
             {"tril", op::tril_triu},
             {"unsqueeze", op::unsqueeze},
+            {"nonzero", op::where_index},
+            {"any", op::reduce_any},
     };
 };
 const std::string& get_input_name_by_op_type(const std::string& type, size_t index) {
@@ -516,19 +518,21 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"unsqueeze2", {}},
             {"unsqueeze", {"X", "AxesTensor"}},
             {"unique", {"X"}},
-            {"unstack", {}},
-            {"where", {}},
+            {"unstack", {"X"}},
+            {"where", {"Condition", "X", "Y"}},
             {"while", {}},
             {"write_to_array", {}},
             {"where_index", {}},
-            {"yolo_box", {}},
-            {"abs", {}},
+            {"nonzero", {"Condition"}},
+            {"yolo_box", {"X", "ImgSize"}},
+            {"abs", {"X"}},
             {"elu", {}},
-            {"atan2", {}},
-            {"scatter", {}},
-            {"scatter_nd_add", {}},
+            {"atan2", {"X1", "X2"}},
+            {"scatter", {"X", "Ids", "Updates"}},
+            {"scatter_nd_add", {"X", "Index", "Updates"}},
             {"take_along_axis", {}},
-            {"reduce_any", {}}
+            {"reduce_any", {}},
+            {"any", {"X", "full"}}
       };
       auto it = map.find(type);
       bool success = (it != map.end() && (it->second.size() > index));
@@ -707,20 +711,22 @@ const std::vector<std::string>& get_output_name_by_op_type(const std::string& ty
             {"trilinear_interp_v2", {}},
             {"unsqueeze2", {}},
             {"unsqueeze", {"Out"}},
-            {"unique", {"Out", "Index", "Indices","Counts"}},
-            {"unstack", {}},
-            {"where", {}},
+            {"unique", {"Out", "Index", "Inverse", "Counts"}},
+            {"unstack", {"Y"}},
+            {"where", {"Out"}},
             {"while", {}},
             {"write_to_array", {}},
             {"where_index", {}},
-            {"yolo_box", {}},
-            {"abs", {}},
+            {"nonzero", {"Out"}},
+            {"yolo_box", {"Boxes", "Scores"}},
+            {"abs", {"Out"}},
             {"elu", {}},
-            {"atan2", {}},
-            {"scatter", {}},
-            {"scatter_nd_add", {}},
+            {"atan2", {"Out"}},
+            {"scatter", {"Out"}},
+            {"scatter_nd_add", {"Out"}},
             {"take_along_axis", {}},
-            {"reduce_any", {}}
+            {"reduce_any", {}},
+            {"any", {"Out"}}
       };
       auto it = map.find(type);
       bool success = (it != map.end()) && (it->second.size() > 0);

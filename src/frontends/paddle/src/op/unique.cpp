@@ -24,11 +24,25 @@ NamedOutputs unique(const NodeContext& node) {
     } else {
         outputs = std::make_shared<ov::opset10::Unique>(x, true, dtype, dtype)->outputs();
     }
-
-    return NamedOutputs{{"Out", {outputs[0]}},
-                        {"Indices", {outputs[1]}},
-                        {"Index", {outputs[2]}},
-                        {"Counts", {outputs[3]}}};
+    if (node.is_json_format()) {
+        NamedOutputs result;
+        result.insert({"Out", {outputs[0]}});
+        if (node.get_attribute<bool>("return_index")) {
+            result.insert({"Index", {outputs[1]}});
+        }
+        if (node.get_attribute<bool>("return_inverse")) {
+            result.insert({"Inverse", {outputs[2]}});
+        }
+        if (node.get_attribute<bool>("return_counts")) {
+            result.insert({"Counts", {outputs[3]}});
+        }
+        return result;
+    } else {
+        return NamedOutputs{{"Out", {outputs[0]}},
+            {"Indices", {outputs[1]}},
+            {"Index", {outputs[2]}},
+            {"Counts", {outputs[3]}}};
+    }
 }
 
 }  // namespace op

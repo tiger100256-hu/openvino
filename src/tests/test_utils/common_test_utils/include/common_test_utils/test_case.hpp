@@ -129,6 +129,10 @@ public:
 
         OPENVINO_ASSERT(m_output_index < results.size(), "All model results already have expected outputs.");
 
+        for (int i = 0; i < results.size(); i++) {
+            const auto shape = results.at(i)->get_output_partial_shape(0);
+            std::cout << "openvino result shape i:" << i << " shape:" << shape << std::endl;
+        }
         const auto& output_pshape = results.at(m_output_index)->get_output_partial_shape(0);
         OPENVINO_ASSERT(output_pshape.compatible(expected_shape),
                         "Provided expected output shape ",
