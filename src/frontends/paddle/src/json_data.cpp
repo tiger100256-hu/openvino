@@ -29,11 +29,15 @@ void decodeOP(const nlohmann::json& json, OP& op) {
         decodeConst(json, op);
     } else {
         size_t pos = op.type.find('.');
+        auto dialet = op.type.substr(0, pos);
         if (pos != std::string::npos) {
             op.type = op.type.substr(pos + 1);
+            std::cout << "dialet:" << dialet << " type:" << op.type << std::endl;
             // the name sum is conflict with paddle 2.0 op sum
             if (op.type == "sum") {
                 op.type = "reduce_sum";
+            } else if (op.type == "split" && dialet == "1") {
+                op.type = "split_with_num";
             }
         }
         auto& inputsJson = json.at("I");

@@ -14,8 +14,19 @@ NamedOutputs split(const NodeContext& node) {
     using namespace opset7;
     const auto& data = node.get_input("X");
     Output<Node> axis;
-    if (node.has_input("AxisTensor")) {
-        auto input = node.get_input("AxisTensor");
+    std::string axis_name = "AxisTensor";
+    std::string sections_name = "SectionsTensorList";
+    if (node.is_json_format()) {
+        auto inputs = node.get_all_ng_inputs();
+        if (inputs.size() == 2) {
+            axis_name = "Input1";
+        } else if (inputs.size() == 3) {
+            axis_name = "Input2";
+            sections_name = "Input1";
+        }
+    }
+    if (node.has_input(axis_name)) {
+        auto input = node.get_input(axis_name);
         auto zero_node = Constant::create(element::i32, {1}, {0});
         axis = std::make_shared<ReduceMin>(input, zero_node, false);
     } else {
@@ -25,13 +36,13 @@ NamedOutputs split(const NodeContext& node) {
         }
         axis = std::make_shared<Constant>(ov::element::i32, Shape{}, dim);
     }
-    auto num_or_sections = node.get_attribute<int32_t>("num");
+    auto num_or_sections = node.get_attribute<int32_t>("num", 0);
     NamedOutputs named_outputs;
     std::vector<Output<Node>> split_outputs;
     if (num_or_sections == 0) {
         Output<Node> sections_node;
-        if (node.has_input("SectionsTensorList")) {
-            auto inputs = node.get_ng_inputs("SectionsTensorList");
+        if (node.has_input(sections_name)) {
+            auto inputs = node.get_ng_inputs(sections_name);
             sections_node = std::make_shared<ov::opset7::Concat>(inputs, 0);
         } else {
             PADDLE_OP_CHECK(node, node.has_attribute("sections"), "split: num==0 && no sections is invalid.");

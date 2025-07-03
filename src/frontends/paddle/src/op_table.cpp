@@ -344,6 +344,7 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
             {"unsqueeze", op::unsqueeze},
             {"nonzero", op::where_index},
             {"any", op::reduce_any},
+            {"add_n", op::sum},
     };
 };
 const std::string& get_input_name_by_op_type(const std::string& type, size_t index) {
@@ -438,7 +439,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"max_pool3d_with_index", {"X"}},
             {"matrix_nms", {}},
             {"memcpy", {}},
-            {"meshgrid", {}},
+            {"meshgrid", {"X"}},
             {"multiclass_nms3", {}},
             {"nearest_interp_v2", {}},
             {"nearest_interp", {}},
@@ -473,7 +474,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"reshape2", {}},
             {"reshape", {"X", "ShapeTensor"}},
             {"reverse", {}},
-            {"rnn", {}},
+            {"rnn", {"Input", "WeightList"}},
             {"roi_align", {}},
             {"roll", {"X", "ShiftsTensor"}},
             {"round", {"X"}},
@@ -494,13 +495,14 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"softplus", {"X"}},
             {"softshrink", {"X"}},
             {"split", {}},
-            {"split_with_num", {"X", "AxisTensor"}},
+            {"split_with_num", {"X", "Input1", "Input2"}},
             {"sqrt", {"X"}},
             {"squeeze2", {}},
             {"squeeze", {"X", "full"}},
-            {"stack", {}},
+            {"stack", {"X"}},
             {"strided_slice", {"Input", "StartsTensor", "EndsTensor", "StridesTensor"}},
             {"sum", {}},
+            {"add_n", {"X"}},
             {"swish", {"X"}},
             {"sync_batch_norm", {}},
             {"tanh", {"X"}},
@@ -535,6 +537,12 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"any", {"X", "full"}}
       };
       auto it = map.find(type);
+      auto size = it->second.size();
+      const static std::set<std::string> unknow_input_num_ops = {"rnn", "sum"};
+      auto unknow_it = unknow_input_num_ops.find(type);
+      if (unknow_it != unknow_input_num_ops.end() && index >= size) {
+          return it->second[size - 1];
+      }
       bool success = (it != map.end() && (it->second.size() > index));
       FRONT_END_OP_CONVERSION_CHECK(success, "No input name found for ", type, " node.", " index:", index);
       return it->second[index];
@@ -632,7 +640,7 @@ const std::vector<std::string>& get_output_name_by_op_type(const std::string& ty
             {"max_pool3d_with_index", {"Out", "Mask"}},
             {"matrix_nms", {}},
             {"memcpy", {}},
-            {"meshgrid", {}},
+            {"meshgrid", {"Out"}},
             {"multiclass_nms3", {}},
             {"nearest_interp_v2", {}},
             {"nearest_interp", {}},
@@ -667,7 +675,7 @@ const std::vector<std::string>& get_output_name_by_op_type(const std::string& ty
             {"reshape2", {}},
             {"reshape", {"Out"}},
             {"reverse", {}},
-            {"rnn", {}},
+            {"rnn", {"Out", "State"}},
             {"roi_align", {}},
             {"roll", {"Out"}},
             {"round", {"Out"}},
@@ -692,9 +700,10 @@ const std::vector<std::string>& get_output_name_by_op_type(const std::string& ty
             {"sqrt", {"Out"}},
             {"squeeze2", {}},
             {"squeeze", {"Out"}},
-            {"stack", {}},
+            {"stack", {"Y"}},
             {"strided_slice", {"Out"}},
             {"sum", {}},
+            {"add_n", {"Out"}},
             {"swish", {"Out"}},
             {"sync_batch_norm", {}},
             {"tanh", {"Out"}},

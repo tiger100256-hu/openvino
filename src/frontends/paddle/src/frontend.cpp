@@ -102,16 +102,30 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
             }
             auto port_name = std::to_string(inputId);
             auto node_it = nodes.find(port_name);
-            // general check, because in case of error partial conversion should fail
-            FRONT_END_GENERAL_CHECK(node_it != nodes.end(),
+            auto input_name = get_input_name_by_op_type(json_op_place->get_op().type, input_name_index);
+            if (node_it != nodes.end()) {
+                named_inputs[input_name].push_back(node_it->second);
+            } else {
+                // input mabe from combine node
+                size_t combine_index = 0;
+                while (true) {
+                    auto combine_input_name = port_name + "_" + std::to_string(combine_index);
+                    node_it = nodes.find(combine_input_name);
+                    if (node_it != nodes.end()) {
+                       named_inputs[input_name].push_back(node_it->second);
+                    } else {
+                       break;
+                    }
+                    combine_index++;
+                }
+            }
+            input_name_index++;
+            FRONT_END_GENERAL_CHECK(named_inputs[input_name].size() > 0,
                     "Input ",
                     port_name,
                     " for node with type ",
                     type,
                     " wasn't found. It may happen if model was cut incorrectly.");
-            auto input_name = get_input_name_by_op_type(json_op_place->get_op().type, input_name_index);
-            input_name_index++;
-            named_inputs[input_name].push_back(node_it->second);
         }
         NamedOutputs outputs;
         // In case the conversion function throws exception
@@ -403,6 +417,39 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
             } else if (op.is_parameter) {
                 // const are stored in the model already
                 continue;
+            } else if (op.type == "combine") {
+                // save output of combine as node name_0 name_1 name_2
+                FRONT_END_OP_CONVERSION_CHECK(op.outputPorts.size() == 1, "combine only has one output");
+                const auto& port = op.outputPorts[0];
+                if (!port.used)  {
+                    continue;
+                }
+                auto output_port_name_base = std::to_string(port.id);
+                size_t combine_index = 0;
+                for (const auto& inputId : op.inputIds) {
+                    if (op.unusedInputIds.find(inputId) != op.unusedInputIds.end()) {
+                        continue;
+                    }
+                    auto input_name = std::to_string(inputId);
+                    auto node_it = nodes_dict.find(input_name);
+                    auto output_port_name = output_port_name_base + "_" + std::to_string(combine_index);
+                    nodes_dict[output_port_name] = node_it->second;
+                    combine_index++;
+                }
+            } else if (op.type == "split") {
+                auto& inputIds = op.inputIds;
+                FRONT_END_OP_CONVERSION_CHECK(inputIds.size() == 1, "split only has one input, but size:", inputIds.size());
+                size_t split_index = 0;
+                for (const auto& port : op.outputPorts) {
+                    auto input_name_base = std::to_string(inputIds[0]);
+                    auto input_port_name = input_name_base + "_" + std::to_string(split_index);
+                    auto it = nodes_dict.find(input_port_name);
+                    FRONT_END_OP_CONVERSION_CHECK(it != nodes_dict.end(),
+                        "split can't find the input:", input_name_base, " index:", split_index);
+                    auto output_port_name = std::to_string(port.id);
+                    nodes_dict[output_port_name] = it->second;
+                    split_index++;
+                }
             } else {
                 // try_update_sublock_info(op_place, subblock_inputs_outputs);
                 paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
@@ -430,10 +477,20 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                         FRONT_END_OP_CONVERSION_CHECK(idx < output_name.size(), "idx is greater than output name size, idx:", idx);
                         auto it = named_outputs.find(output_name[idx]);
                         std::cout << "port_name:" << port_name << "output_name[idx]:" << output_name[idx] << std::endl;
-                        FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[0]);
+                        FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[idx]);
                         const auto& ng_outputs = it->second;
-                        FRONT_END_OP_CONVERSION_CHECK(0 < ng_outputs.size(), "idx is greater than output size, idx:", idx);
-                        nodes_dict[port_name] = ng_outputs[0];
+                        FRONT_END_OP_CONVERSION_CHECK(ng_outputs.size() > 0, "at least one output for output name ", output_name[idx]);
+                        if (ng_outputs.size() == 1) {
+                            nodes_dict[port_name] = ng_outputs[0];
+                        } else {
+                            // split has multi output, use name_0, name_1, name_2 to save output
+                            size_t split_index = 0;
+                            for (const auto& ng_output : ng_outputs) {
+                                auto output_port_name = port_name + "_" + std::to_string(split_index);
+                                nodes_dict[output_port_name] = ng_output;
+                                split_index++;
+                            }
+                        }
                         idx++;
                     }
                 }
