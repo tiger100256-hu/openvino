@@ -52,9 +52,12 @@ struct Port {
    const std::string& get_layout() const;
    bool used = false;
 };
+struct Region;
 class OP {
 public:
    OP(const nlohmann::json& json_data_):json_data(json_data_){}
+   std::vector<uint64_t> get_sub_inputs_ids(size_t block_idx);
+   std::vector<uint64_t> get_sub_outputs_ids(size_t block_idx);
    std::string name;
    std::string type;
    std::vector<uint64_t> inputIds;
@@ -67,12 +70,17 @@ public:
    std::string attrs;
    std::string outAttrs;
    std::string quantAttrs;
+   std::vector<size_t> sub_block_idxs;
+   std::vector<std::shared_ptr<Region>> sub_region_vecs;
    const nlohmann::json& json_data;
 };
 struct Block {
     std::string name;
+    uint64_t block_idx;
     std::vector<std::string> args;
     std::vector<OP> ops;
+    std::vector<uint64_t> input_ids;
+    std::vector<uint64_t> ouputs_ids;
 };
 struct Region{
     std::string name;
@@ -82,11 +90,11 @@ struct Graph {
     std::string magic;
     uint64_t version = 0;
     bool trainable = false;
-    std::vector<Region> regions;
+    std::vector<std::shared_ptr<Region>> regions;
     nlohmann::json json_data;
 };
 TypeType convertFromStringToType(std::string type);
-void decodeRegion(const nlohmann::json& json, Region& region);
+void decodeRegion(const nlohmann::json& json, std::shared_ptr<Region> region);
 void decodeBlock(const nlohmann::json& json, Block& block);
 void decodeOP(const nlohmann::json& json, OP& op);
 void decodeConst(const nlohmann::json& json, OP& op);

@@ -345,6 +345,7 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
             {"nonzero", op::where_index},
             {"any", op::reduce_any},
             {"add_n", op::sum},
+            {"if", op::conditional_block},
     };
 };
 const std::string& get_input_name_by_op_type(const std::string& type, size_t index) {
@@ -365,6 +366,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"clip", {"X", "min", "max"}},
             {"concat", {}},
             {"conditional_block", {}},
+            {"if", {"Cond", "then_inputs", "then_params", "then_outputs", "else_inputs", "else_params", "else_outputs"}},
             {"conv2d", {"Input", "Filter"}},
             {"conv2d_transpose", {}},
             {"cos", {}},
@@ -474,7 +476,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"reshape2", {}},
             {"reshape", {"X", "ShapeTensor"}},
             {"reverse", {}},
-            {"rnn", {"Input", "WeightList"}},
+            {"rnn", {"Input", "PreState", "WeightList", "SequenceLength", "unused"}},
             {"roi_align", {}},
             {"roll", {"X", "ShiftsTensor"}},
             {"round", {"X"}},
@@ -538,7 +540,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
       };
       auto it = map.find(type);
       auto size = it->second.size();
-      const static std::set<std::string> unknow_input_num_ops = {"rnn", "sum"};
+      const static std::set<std::string> unknow_input_num_ops = {"sum"};
       auto unknow_it = unknow_input_num_ops.find(type);
       if (unknow_it != unknow_input_num_ops.end() && index >= size) {
           return it->second[size - 1];
@@ -566,6 +568,7 @@ const std::vector<std::string>& get_output_name_by_op_type(const std::string& ty
             {"clip", {"Out"}},
             {"concat", {}},
             {"conditional_block", {}},
+            {"if", {"Out"}},
             {"conv2d", {"Output"}},
             {"conv2d_transpose", {}},
             {"cos", {}},

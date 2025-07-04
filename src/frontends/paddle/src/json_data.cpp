@@ -4,13 +4,13 @@ namespace ov {
 namespace frontend {
 namespace paddle {
 namespace json {
-void decodeRegion(const nlohmann::json& json, Region& region) {
-    region.name = json.at("#").template get<std::string>();
+void decodeRegion(const nlohmann::json& json, std::shared_ptr<Region> region){
+    region->name = json.at("#").template get<std::string>();
     auto& blocksJson = json.at("blocks");
     for (auto& blockJson : blocksJson) {
         Block newBlock;
         decodeBlock(blockJson, newBlock);
-        region.blocks.push_back(std::move(newBlock));
+        region->blocks.push_back(std::move(newBlock));
     }
 }
 void decodeBlock(const nlohmann::json& json, Block& block) {
@@ -38,6 +38,14 @@ void decodeOP(const nlohmann::json& json, OP& op) {
                 op.type = "reduce_sum";
             } else if (op.type == "split" && dialet == "1") {
                 op.type = "split_with_num";
+            } else if (op.type == "if") {
+                //decode sub graph
+                auto& regionsJson = json.at("regions");
+                for (auto& regionJson : regionsJson) {
+                    auto sub_region = std::make_shared<Region>()
+                    json::decodeRegion(regionJson, sub_region);
+                    sub_region_vecs.push_back(sub_region);
+                }
             }
         }
         auto& inputsJson = json.at("I");
@@ -244,6 +252,27 @@ const std::vector<size_t> Port::get_static_shapes() const {
 const std::string& Port::get_layout() const {
    assert(descs.size() >= 1);
    return descs[0].layout;
+}
+
+std::vector<uint64_t> OP::get_sub_inputs_ids(size_t block_idx) {
+    for(auto& region : sub_region_vecs) {
+        for(auto& block : region->blocks) {
+           if (block_idx == block.id) {
+               return block.input_ids;
+           }
+        }
+    }
+    OPENVINO_ASSERT(false, "Cannot find block_idx: ",  block_idx);
+}
+std::vector<uint64_t> OP::get_sub_outputs_ids(size_t block_idx) {
+    for(auto& region : sub_region_vecs) {
+        for(auto& block : region->blocks) {
+           if (block_idx == block.id) {
+               return block.output_ids;
+           }
+        }
+    }
+    OPENVINO_ASSERT(false, "Cannot find block_idx: ",  block_idx);
 }
 
 }  // namespace json

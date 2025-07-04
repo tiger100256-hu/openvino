@@ -127,6 +127,12 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
                     type,
                     " wasn't found. It may happen if model was cut incorrectly.");
         }
+        if (op.type == "if") {
+            auto& json_data = op.json_data;
+            std::vector<json::Region> sub_regions;
+            auto& sub_regions_data = json_data.at("regions");
+            // JsonInputModelImpl json_impl(
+        }
         NamedOutputs outputs;
         // In case the conversion function throws exception
         try {
@@ -386,7 +392,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                         const auto& tensor_name = op_desc.outputs().begin()->arguments()[0];
                         auto node = named_outputs.begin()->second[0].get_node_shared_ptr();
                         node->set_friendly_name(tensor_name);
-                        std::cout << "tensor_name:" << tensor_name << std::endl;
+                        std::cout << "block index:" << block_idx <<  " tensor_name:" << tensor_name << std::endl;
                     }
 
                     const auto& out_ports = op_desc.outputs();
@@ -403,7 +409,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                                 // if nodes_dict already has node mapped to this tensor name it
                                 // usually means that it was overwritten using set_tensor_value
                                 nodes_dict[var_name] = ng_outputs[idx];
-                                std::cout << "var_name:" << var_name << std::endl;
+                                std::cout << "block index:" << block_idx << " var_name:" << var_name << std::endl;
                             }
                         }
                     }
@@ -451,7 +457,13 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     split_index++;
                 }
             } else {
-                // try_update_sublock_info(op_place, subblock_inputs_outputs);
+                //try_update_sublock_info(op_place, subblock_inputs_outputs);
+                if (op.type == "if") {
+                    // get inputs and output block
+                    for (auto& block_index : op.sub_block_idxs) {
+                         auto input_ids = op.get_sub_outputs_ids(block_index);
+                    }
+                }
                 paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
                 if (!named_outputs.empty()) {
                     const auto& tensor_name = op.name;

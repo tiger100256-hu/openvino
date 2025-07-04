@@ -33,23 +33,68 @@ void JsonInputModelImpl::load_places() {
     const int cnt_of_regions = graph.regions.size();
     std::map<std::string, uint64_t> op_statistics;
     uint32_t cnt_of_blocks = 0;
+    // get block num of main graph
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
-        auto& blocks = graph.regions[region_idx].blocks;
+        auto& blocks = graph.regions[region_idx]->blocks;
         cnt_of_blocks += blocks.size();
     }
+    // collect sub regions of op
+    std::vector<std::shared_ptr<regions>> sub_regions;
+    for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
+        const auto& blocks = graph.regions[region_idx]->blocks;
+        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+            const auto& block = blocks[block_idx];
+            for (const auto& op : block.ops) {
+                for (size_t i = 0; i < op.sub_region_vecs(); i++) {
+                    sub_regions.push_back(op.sub_region_vecs[i]);
+                    for (auto& block : op.sub_region_vecs[i]) {
+                        op.sub_region_ids.push_back(cnt_of_blocks + i);
+                        block.id = cnt_of_blocks + i;
+                        cnt_of_blocks++;
+                    }
+                }
+            }
+        }
+    }
+    // add sub regions to graph.regions
+    for (auto& item : sub_regions) {
+         m_graph.regions.push_back(item);
+    }
+    cnt_of_regions = graph.regions.size();
     m_op_places.resize(cnt_of_blocks);
     uint32_t index = 0;
     // collect all used port
     std::set<size_t> usedInputIds;
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
-        const auto& blocks = graph.regions[region_idx].blocks;
+        const auto& blocks = graph.regions[region_idx]->blocks;
         for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
-           const auto& block = blocks[block_idx];
-           for (const auto& op : block.ops) {
+            const auto& block = blocks[block_idx];
+            std::set<uint64_t> block_inputs;
+            std::set<uint64_t> outputs;
+            std::set<uint64_t> block_outputs;
+            for (const auto& op : block.ops) {
                 for (const auto& inputId : op.inputIds) {
                     usedInputIds.insert(inputId);
+                    if (op.type == "fetch" || op.type == "yield") {
+                        block_outputs.insert(inputId)
+                    }
+                    if (outputs.find(inputId) != block_inputs.end()) {
+                        continue;
+                    }
+                    if (block_inputs.find(inputId) == block_inputs.end()) {
+                        block_inputs.insert(inputId);
+                    }
                 }
-           }
+                for (const auto& port : op.outputPorts) {
+                    outputs.insert(port.id)
+                }
+            }
+            for (auto& item : block_inputs) {
+                block.input_ids.push_back(item);
+            }
+            for (auto& item : block_outputs) {
+                block.output_ids.push_back(item);
+            }
         }
     }
     index = 0;
@@ -286,6 +331,8 @@ void JsonInputModelImpl::create_temp_consts() {
     }
 }
 
+void load_sub_graph_places(const nlohmann::json& sub_json, std::map<std::string, std::shared_ptr<BaseTensorPlace> places) {
+}
 
 JsonInputModelImpl::JsonInputModelImpl(const std::vector<std::istream*>& streams,
                                            const InputModel& input_model,

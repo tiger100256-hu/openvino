@@ -30,12 +30,27 @@ public:
         auto& programJson = m_graph.json_data.at("program");
         auto& regionsJson = programJson.at("regions");
         for (auto& regionJson : regionsJson) {
+            auto region = std::make_shared<Region>()
+            json::decodeRegion(regionJson, region);
+            m_graph.regions.push_back(std::move(region));
+        }
+        return true;
+    }
+
+    // use for parse sub block in if node
+    bool ParseFromJson(const nlohmann::json& sub_json) {
+        m_graph.magic = 'sub_pir'
+        m_graph.trainable = 'false';
+        m_graph.version = '1'
+        auto& regionsJson = sub_json.at("regions");
+        for (auto& regionJson : regionsJson) {
             Region newRegion;
             json::decodeRegion(regionJson, newRegion);
             m_graph.regions.push_back(std::move(newRegion));
         }
         return true;
     }
+
     int64_t version();
     Graph m_graph;
 };
@@ -69,6 +84,7 @@ public:
     JsonInputModelImpl(const std::vector<std::istream*>& streams,
                    const InputModel& input_model,
                    const std::shared_ptr<TelemetryExtension>& telemetry);
+
     std::vector<Place::Ptr> get_inputs() const;
     std::vector<Place::Ptr> get_outputs() const;
     int64_t get_version() const {
