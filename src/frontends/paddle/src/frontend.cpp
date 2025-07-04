@@ -458,12 +458,30 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                 }
             } else {
                 //try_update_sublock_info(op_place, subblock_inputs_outputs);
+                ParameterVector sub_parameter_nodes;
                 if (op.type == "if") {
                     // get inputs and output block
                     for (auto& block_index : op.sub_block_idxs) {
-                         auto input_ids = op.get_sub_outputs_ids(block_index);
+                        auto& input_ids = op.get_sub_input_ids(block_index);
+                        auto& output_ids = op.get_sub_output_ids(block_index);
+                        auto& var_place = model->get_var_place();
+                        for (auto id : input_ids)  {
+                            auto port_name = std::to_string(id);
+                            auto it = var_place.find(port_name);
+                            FRONT_END_OP_CONVERSION_CHECK(it != var_place.end(), "find the input:", port_name);
+                            auto json_place =  std::dynamic_pointer_cast < JsonTensorPlace(it->second);
+                            const auto& port = json_place->get_port();
+                            const auto shape =  ov::PartialShape(port.get_shapes());
+                            const auto type = json::convert_to_ov_type(port.get_precision());
+                            auto param = std::make_shared<Parameter>(type, shape);
+                            param->set_friendly_name(port_name);
+                            param->output(0).get_tensor().add_names({port_name});
+                            nodes_dict[port_name] = param;
+                            sub_parameter_nodes.push_back(param);
+                        }
                     }
                 }
+
                 paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
                 if (!named_outputs.empty()) {
                     const auto& tensor_name = op.name;
