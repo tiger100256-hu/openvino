@@ -36,13 +36,16 @@ void JsonInputModelImpl::load_places() {
     // get block num of main graph
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
         auto& blocks = graph.regions[region_idx]->blocks;
-        cnt_of_blocks += blocks.size();
+        for (auto& block : blocks) {
+            block.id = cnt_of_blocks;
+            cnt_of_blocks++;
+        }
     }
-    // collect sub regions of op
+    // collect sub regions of op, if sublock has subblock?
     std::vector<std::shared_ptr<regions>> sub_regions;
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
         const auto& blocks = graph.regions[region_idx]->blocks;
-        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++) {
             const auto& block = blocks[block_idx];
             for (const auto& op : block.ops) {
                 for (size_t i = 0; i < op.sub_region_vecs(); i++) {
@@ -62,12 +65,11 @@ void JsonInputModelImpl::load_places() {
     }
     cnt_of_regions = graph.regions.size();
     m_op_places.resize(cnt_of_blocks);
-    uint32_t index = 0;
     // collect all used port
     std::set<size_t> usedInputIds;
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
         const auto& blocks = graph.regions[region_idx]->blocks;
-        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++) {
             const auto& block = blocks[block_idx];
             std::set<uint64_t> block_inputs;
             std::set<uint64_t> outputs;
@@ -97,10 +99,9 @@ void JsonInputModelImpl::load_places() {
             }
         }
     }
-    index = 0;
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
        const auto& blocks = graph.regions[region_idx].blocks;
-       for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++, index++) {
+       for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++) {
            const auto& block = blocks[block_idx];
            for (const auto& op : block.ops) {
                auto op_place = std::make_shared<JsonOpPlace>(m_input_model, op);
@@ -108,7 +109,7 @@ void JsonInputModelImpl::load_places() {
                if (m_telemetry) {
                    op_statistics[op.type]++;
                }
-               m_op_places[index].push_back(op_place);
+               m_op_places[block.id].push_back(op_place);
                for (const auto& output : op.outputPorts) {
                    auto it = usedInputIds.find(output.id);
                    if (it == usedInputIds.end() ||  op.type == "fetch") {

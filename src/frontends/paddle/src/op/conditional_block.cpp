@@ -15,29 +15,18 @@ namespace op {
 NamedOutputs conditional_block(const NodeContext& node) {
     if (node.is_json_format()) {
         const auto cond = node.get_input("cond");
-        const auto then_inputs = node.get_ng_input("then_inputs");
-        const auto then_params = node.get_ng_input("then_params");
-        const auto then_outputs = node.get_ng_input("then_outputs");
-        const auto else_inputs = node.get_ng_input("else_inputs");
-        const auto else_pararms = node.get_ng_input("else_params");
-        const auto else_outputs = node.get_ng_input("else_outputs");
-        const auto if_node = std::make_shared<default_opset::If>(cond);
-        const auto then_branch = std::make_shared<Model>(then_outputs, then_inputs);
-        const auto else_branch = std::make_shared<Model>(else_outputs, then_inputs);
-        if_node->set_then_body(then_branch);
-        if_node->set_else_body(else_branch);
-        for (size_t i = 0; i < then_params.size(); i++) {
-            if_node->set_input(then_inputs[i], then_params[i], nullptr);
-        }
-        for (size_t i = 0; i < else_params.size(); i++) {
-            if_node->set_input(else_inputs[i], nullptr, else_params[i]);
-        }
-        auto else_results = else_branch->get_results();
-        auto then_results = then_branch->get_results();
-        for (size_t i = 0; i < else_results.size(); i++) {
-            if_node->set_output(then_results[i], else_results[i]);
-        }
-        return node.default_single_output_mapping({if_node}, {"Out"});
+        const auto block_ids = node.get_input("block_ids");
+        auto block_ids_node = full.get_node_shared_ptr();
+        auto block_ids_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(block_ids_node);
+        auto block_ids_value_vector = block_ids_const->cast_vector<int32_t>();
+        assert(block_ids_value_vector.size() == 2);
+        block_ids = block_ids_value_vector[0];
+        std::shared_ptr<Node> placehodler_if;
+        std::shared_ptr<Node> placehodler_else;
+        const auto outputs_info = node.get_output_port_infos("Out");
+        placehodler_if = std::make_shared<ov::op::internal::ConditionalBlock>(cond, true, block_ids[0], outputs_info);
+        Output<Node> no_cond = std::make_shared<ov::opset6::LogicalNot>(cond)
+        placehodler_else = std::make_shared<ov::op::internal::ConditionalBlock>(no_cond, true, block_ids[1], outputs_info);
     }
     const auto cond = node.get_input("Cond");
     const auto sub_block = node.get_attribute<int32_t>("sub_block");

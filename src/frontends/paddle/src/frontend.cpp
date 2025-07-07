@@ -334,6 +334,31 @@ void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, 
             auto block_idx = tmp_node.get_attribute<int32_t>("sub_block");
             subblock_info[block_idx] = std::make_tuple(op_desc.type(), inp_tensors, outp_tensors);
         }
+    } else if (auto op_place = std::dynamic_pointer_cast<JsonOpPlace>(base_op_place)) {
+        auto op = op_place->get_op();
+        if (op.type == "if") {
+            // get inputs and output block
+            for (auto& block_index : op.sub_block_idxs) {
+                auto& input_ids = op.get_sub_input_ids(block_index);
+                auto& output_ids = op.get_sub_output_ids(block_index);
+                auto& var_place = model->get_var_place();
+                std::vector<std::shared_ptr<BaseTensorPlace>> outp_tensors;
+                std::vector<std::shared_ptr<BaseTensorPlace>> inp_tensors;
+                for (auto id : input_ids)  {
+                    auto port_name = std::to_string(id);
+                    auto it = var_place.find(port_name);
+                    FRONT_END_OP_CONVERSION_CHECK(it != var_place.end(), "find the input:", port_name);
+                    inp_tensors.insert(it->second);
+                }
+                for (auto id : output_ids)  {
+                    auto port_name = std::to_string(id);
+                    auto it = var_place.find(port_name);
+                    FRONT_END_OP_CONVERSION_CHECK(it != var_place.end(), "find the input:", port_name);
+                    outp_tensors.insert(it->second);
+                }
+                subblock_info[block_index] = std::make_tuple(op.type, inp_tensors, outp_tensors);
+            }
+        }
     } else {
         FRONT_END_GENERAL_CHECK(false, "haven't implement for json format model");
     }
@@ -457,31 +482,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     split_index++;
                 }
             } else {
-                //try_update_sublock_info(op_place, subblock_inputs_outputs);
-                ParameterVector sub_parameter_nodes;
-                if (op.type == "if") {
-                    // get inputs and output block
-                    for (auto& block_index : op.sub_block_idxs) {
-                        auto& input_ids = op.get_sub_input_ids(block_index);
-                        auto& output_ids = op.get_sub_output_ids(block_index);
-                        auto& var_place = model->get_var_place();
-                        for (auto id : input_ids)  {
-                            auto port_name = std::to_string(id);
-                            auto it = var_place.find(port_name);
-                            FRONT_END_OP_CONVERSION_CHECK(it != var_place.end(), "find the input:", port_name);
-                            auto json_place =  std::dynamic_pointer_cast < JsonTensorPlace(it->second);
-                            const auto& port = json_place->get_port();
-                            const auto shape =  ov::PartialShape(port.get_shapes());
-                            const auto type = json::convert_to_ov_type(port.get_precision());
-                            auto param = std::make_shared<Parameter>(type, shape);
-                            param->set_friendly_name(port_name);
-                            param->output(0).get_tensor().add_names({port_name});
-                            nodes_dict[port_name] = param;
-                            sub_parameter_nodes.push_back(param);
-                        }
-                    }
-                }
-
+                try_update_sublock_info(op_place, subblock_inputs_outputs);
                 paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
                 if (!named_outputs.empty()) {
                     const auto& tensor_name = op.name;
