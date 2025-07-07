@@ -128,10 +128,29 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
                     " wasn't found. It may happen if model was cut incorrectly.");
         }
         if (op.type == "if") {
-            auto& json_data = op.json_data;
-            std::vector<json::Region> sub_regions;
-            auto& sub_regions_data = json_data.at("regions");
-            // JsonInputModelImpl json_impl(
+            // only one input cond, we need to parepare if_inputs and else_inputs and sub block index
+            FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 2, "if op has two blocks"
+            const std::vector<int32_t> sub_block_indexs;
+            const size_t if_block_id = op.sub_block_idxs[0];
+            sub_block_indexs.push_back(if_block_id);
+            auto& if_input_ids = op.get_sub_input_ids(if_block_id);
+            for (auto& inputs : if_input_ids) {
+                auto port_name = std::to_string(inputs);
+                auto it = nodes.find(port_name);
+                FRONT_END_OP_CONVERSION_CHECK(it != nodes.end(),
+                                              "cant' find the input:", port_name, " for type ", type);
+                 named_inputs["if_inputs"].push_back(it->second);
+            }
+            const size_t else_block_id = op.sub_block_idxs[1];
+            sub_block_indexs.push_back(else_block_id);
+            auto& else_input_ids = op.get_sub_input_ids(else_block_id);
+            for (auto& inputs : else_input_ids) {
+                auto port_name = std::to_string(inputs);
+                auto it = nodes.find(port_name);
+                FRONT_END_OP_CONVERSION_CHECK(it != nodes.end(),
+                                              "cant' find the input:", port_name, " for type ", type);
+                named_inputs["else_inputs"].push_back(it->second);
+            }
         }
         NamedOutputs outputs;
         // In case the conversion function throws exception
@@ -576,6 +595,7 @@ void FrontEnd::try_remove_internal_ops(const std::vector<std::shared_ptr<Model>>
         manager.register_pass<ov::frontend::paddle::pass::TransformTensorArray>(models);
         manager.register_pass<ov::frontend::paddle::pass::TransformIf>(models);
         manager.register_pass<ov::frontend::paddle::pass::TransformWhile>(models);
+        manager.register_pass<ov::frontend::paddle::pass::TransformIfElse>(models);
         manager.run_passes(model);
     }
     if (models.size() > 0) {

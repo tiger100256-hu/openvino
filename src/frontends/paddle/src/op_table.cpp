@@ -21,6 +21,7 @@ OP_CONVERTER(ceil);
 OP_CONVERTER(clip);
 OP_CONVERTER(concat);
 OP_CONVERTER(conditional_block);
+OP_CONVERTER(if_else_block);
 OP_CONVERTER(conv2d);
 OP_CONVERTER(conv2d_transpose);
 OP_CONVERTER(cos);
@@ -345,7 +346,7 @@ std::map<std::string, CreatorFunction> get_supported_ops() {
             {"nonzero", op::where_index},
             {"any", op::reduce_any},
             {"add_n", op::sum},
-            {"if", op::conditional_block},
+            {"if", op::if_else_block},
     };
 };
 const std::string& get_input_name_by_op_type(const std::string& type, size_t index) {
@@ -366,7 +367,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"clip", {"X", "min", "max"}},
             {"concat", {}},
             {"conditional_block", {}},
-            {"if", {"Cond", "then_inputs", "then_params", "then_outputs", "else_inputs", "else_params", "else_outputs"}},
+            {"if", {"Cond", "if_inputs", "else_inputs", "sub_block_indexs"}},
             {"conv2d", {"Input", "Filter"}},
             {"conv2d_transpose", {}},
             {"cos", {}},
