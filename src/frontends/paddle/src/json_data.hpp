@@ -56,8 +56,8 @@ struct Region;
 class OP {
 public:
    OP(const nlohmann::json& json_data_):json_data(json_data_){}
-   std::vector<uint64_t> get_sub_inputs_ids(size_t block_idx);
-   std::vector<uint64_t> get_sub_outputs_ids(size_t block_idx);
+   const std::vector<uint64_t>& get_sub_inputs_ids(const size_t block_idx) const;
+   const std::vector<uint64_t>& get_sub_outputs_ids(const size_t block_idx) const;
    std::string name;
    std::string type;
    std::vector<uint64_t> inputIds;
@@ -76,11 +76,11 @@ public:
 };
 struct Block {
     std::string name;
-    uint64_t block_idx;
+    uint64_t id;
     std::vector<std::string> args;
     std::vector<OP> ops;
     std::vector<uint64_t> input_ids;
-    std::vector<uint64_t> ouputs_ids;
+    std::vector<uint64_t> output_ids;
 };
 struct Region{
     std::string name;

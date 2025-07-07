@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "internal/pass/transform_if.hpp"
+#include "internal/pass/transform_if_else.hpp"
 
 #include "default_opset.hpp"
-#include "internal/op/conditional_block.hpp"
+#include "internal/op/if_else_block.hpp"
 #include "internal/op/tensorarray_write.hpp"
 #include "openvino/core/graph_util.hpp"
 #include "openvino/pass/pattern/matcher.hpp"
@@ -35,11 +35,11 @@ ov::frontend::paddle::pass::TransformIfElse::TransformIfElse(std::vector<std::sh
 
         // build_if_node
         const auto if_else_block_ids = if_else_block->get_subblock_indexs();
-        OPENVINO_ASSERT(if_else_block_ids.size() == 2, "there should be two branch here);
-        const auto then_idx = if_else_block_ids[0]
+        OPENVINO_ASSERT(if_else_block_ids.size() == 2, "there should be two branch here");
+        const auto then_idx = if_else_block_ids[0];
         const auto& then_branch = funcs[then_idx];
         const auto& then_params = then_branch->get_parameters();
-        const auto else_idx = if_else_block_ids[1]
+        const auto else_idx = if_else_block_ids[1];
         const auto& else_branch = funcs[else_idx];
         const auto& else_params = else_branch->get_parameters();
 
@@ -67,8 +67,8 @@ ov::frontend::paddle::pass::TransformIfElse::TransformIfElse(std::vector<std::sh
         for (size_t i = 0; i < else_results.size(); i++) {
             if_node->set_output(then_results[i], else_results[i]);
         }
-        replace_node(conditional_block, if_node);
-        if_node->set_friendly_name(conditional_block->get_friendly_name());
+        replace_node(if_else_block, if_node);
+        if_node->set_friendly_name(if_else_block->get_friendly_name());
 
         return true;
     };

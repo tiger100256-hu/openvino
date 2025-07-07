@@ -42,9 +42,9 @@ void decodeOP(const nlohmann::json& json, OP& op) {
                 //decode sub graph
                 auto& regionsJson = json.at("regions");
                 for (auto& regionJson : regionsJson) {
-                    auto sub_region = std::make_shared<Region>()
+                    auto sub_region = std::make_shared<Region>();
                     json::decodeRegion(regionJson, sub_region);
-                    sub_region_vecs.push_back(sub_region);
+                    op.sub_region_vecs.push_back(sub_region);
                 }
             }
         }
@@ -254,7 +254,7 @@ const std::string& Port::get_layout() const {
    return descs[0].layout;
 }
 
-std::vector<uint64_t> OP::get_sub_inputs_ids(size_t block_idx) {
+const std::vector<uint64_t>& OP::get_sub_inputs_ids(const size_t block_idx) const {
     for(auto& region : sub_region_vecs) {
         for(auto& block : region->blocks) {
            if (block_idx == block.id) {
@@ -264,7 +264,7 @@ std::vector<uint64_t> OP::get_sub_inputs_ids(size_t block_idx) {
     }
     OPENVINO_ASSERT(false, "Cannot find block_idx: ",  block_idx);
 }
-std::vector<uint64_t> OP::get_sub_outputs_ids(size_t block_idx) {
+const std::vector<uint64_t>& OP::get_sub_outputs_ids(const size_t block_idx) const {
     for(auto& region : sub_region_vecs) {
         for(auto& block : region->blocks) {
            if (block_idx == block.id) {

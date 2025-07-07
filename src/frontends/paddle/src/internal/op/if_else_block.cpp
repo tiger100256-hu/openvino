@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-#include "internal/op/conditional_block.hpp"
+#include "internal/op/if_else_block.hpp"
 
 #include <algorithm>
+#include <cassert>
 
 #include "openvino/op/constant.hpp"
 #include "openvino/op/util/precision_sensitive_attribute.hpp"
@@ -16,7 +17,7 @@ op::internal::IfElseBlock::IfElseBlock(
     const Output<Node>& cond,
     const OutputVector& if_inputs,
     const OutputVector& else_inputs,
-    std::vector<int32_t> sub_block_indexs,
+    const std::vector<int32_t>& sub_block_indexs,
     const std::vector<std::pair<ov::element::Type, ov::PartialShape>>& output_infos)
     : Op({cond}),
       m_sub_block_indexs(sub_block_indexs),
@@ -58,7 +59,7 @@ void op::internal::IfElseBlock::validate_and_infer_types() {
     }
 }
 
-const std::vecotr<OutputVector>& op::internal::IfElseBlock::get_inputs_from_parent(size_t index) const {
+const OutputVector& op::internal::IfElseBlock::get_inputs_from_parent(size_t index) const {
     assert(index < m_inputs_from_parent.size());
     return m_inputs_from_parent[index];
 }

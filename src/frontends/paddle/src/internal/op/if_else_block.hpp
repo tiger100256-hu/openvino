@@ -22,7 +22,7 @@ public:
     IfElseBlock(const Output<Node>& cond,
                 const OutputVector& if_inputs,
                 const OutputVector& else_inputs,
-                std::vector<int32_t>& sub_block_indexs,
+                const std::vector<int32_t>& sub_block_indexs,
                 const std::vector<std::pair<ov::element::Type, ov::PartialShape>>& output_infos);
 
     void validate_and_infer_types() override;
@@ -32,15 +32,15 @@ public:
     std::shared_ptr<Node> clone_with_new_inputs(const OutputVector& new_args) const override;
 
     /// \return A vector containing the values for each input except "cond".
-    const std::vecotr<OutputVector>& op::internal::IfElseBlock::get_inputs_from_parent(size_t index) const;
+    const OutputVector& get_inputs_from_parent(size_t index) const;
 
-    const std::vector<int32_t>& get_subblock_index() const {
-        return m_sub_block_index;
+    const std::vector<int32_t>& get_subblock_indexs() const {
+        return m_sub_block_indexs;
     }
 
 private:
-    int32_t m_sub_block_indexs;
-    std::vector<OutputVector> m_inputs_from_parent
+    std::vector<int32_t> m_sub_block_indexs;
+    std::vector<OutputVector> m_inputs_from_parent;
     std::vector<std::pair<ov::element::Type, ov::PartialShape>> m_output_infos;
 };
 

@@ -30,7 +30,7 @@ namespace json {
 using namespace ::paddle::framework::proto;
 void JsonInputModelImpl::load_places() {
     auto& graph = m_fw_ptr->m_graph;
-    const int cnt_of_regions = graph.regions.size();
+    int cnt_of_regions = graph.regions.size();
     std::map<std::string, uint64_t> op_statistics;
     uint32_t cnt_of_blocks = 0;
     // get block num of main graph
@@ -42,17 +42,20 @@ void JsonInputModelImpl::load_places() {
         }
     }
     // collect sub regions of op, if sublock has subblock?
-    std::vector<std::shared_ptr<regions>> sub_regions;
+    std::vector<std::shared_ptr<Region>> sub_regions;
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
         const auto& blocks = graph.regions[region_idx]->blocks;
         for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++) {
             const auto& block = blocks[block_idx];
             for (const auto& op : block.ops) {
-                for (size_t i = 0; i < op.sub_region_vecs(); i++) {
+                for (size_t i = 0; i < op.sub_region_vecs.size(); i++) {
                     sub_regions.push_back(op.sub_region_vecs[i]);
-                    for (auto& block : op.sub_region_vecs[i]) {
-                        op.sub_region_ids.push_back(cnt_of_blocks + i);
-                        block.id = cnt_of_blocks + i;
+                    for (const auto& block : op.sub_region_vecs[i]->blocks) {
+                        // we need to modify the value of op and block
+                        auto* op_ptr = (json::OP*)(&op);
+                        op_ptr->sub_block_idxs.push_back(cnt_of_blocks);
+                        auto* block_ptr = (json::Block*)(&block);
+                        block_ptr->id = cnt_of_blocks;
                         cnt_of_blocks++;
                     }
                 }
@@ -61,7 +64,7 @@ void JsonInputModelImpl::load_places() {
     }
     // add sub regions to graph.regions
     for (auto& item : sub_regions) {
-         m_graph.regions.push_back(item);
+        graph.regions.push_back(item);
     }
     cnt_of_regions = graph.regions.size();
     m_op_places.resize(cnt_of_blocks);
@@ -78,9 +81,9 @@ void JsonInputModelImpl::load_places() {
                 for (const auto& inputId : op.inputIds) {
                     usedInputIds.insert(inputId);
                     if (op.type == "fetch" || op.type == "yield") {
-                        block_outputs.insert(inputId)
+                        block_outputs.insert(inputId);
                     }
-                    if (outputs.find(inputId) != block_inputs.end()) {
+                    if (outputs.find(inputId) != outputs.end()) {
                         continue;
                     }
                     if (block_inputs.find(inputId) == block_inputs.end()) {
@@ -88,19 +91,21 @@ void JsonInputModelImpl::load_places() {
                     }
                 }
                 for (const auto& port : op.outputPorts) {
-                    outputs.insert(port.id)
+                    outputs.insert(port.id);
                 }
             }
+
+            auto* block_ptr = (json::Block*)(&block);
             for (auto& item : block_inputs) {
-                block.input_ids.push_back(item);
+                block_ptr->input_ids.push_back(item);
             }
             for (auto& item : block_outputs) {
-                block.output_ids.push_back(item);
+                block_ptr->output_ids.push_back(item);
             }
         }
     }
     for (int region_idx = 0; region_idx < cnt_of_regions; region_idx++) {
-       const auto& blocks = graph.regions[region_idx].blocks;
+       const auto& blocks = graph.regions[region_idx]->blocks;
        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++) {
            const auto& block = blocks[block_idx];
            for (const auto& op : block.ops) {
@@ -330,9 +335,6 @@ void JsonInputModelImpl::create_temp_consts() {
             }
         }
     }
-}
-
-void load_sub_graph_places(const nlohmann::json& sub_json, std::map<std::string, std::shared_ptr<BaseTensorPlace> places) {
 }
 
 JsonInputModelImpl::JsonInputModelImpl(const std::vector<std::istream*>& streams,

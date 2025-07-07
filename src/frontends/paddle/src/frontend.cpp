@@ -32,6 +32,7 @@
 #include "input_model.hpp"
 #include "internal/pass/transform_fakequantize.hpp"
 #include "internal/pass/transform_if.hpp"
+#include "internal/pass/transform_if_else.hpp"
 #include "internal/pass/transform_tensorarray.hpp"
 #include "internal/pass/transform_while.hpp"
 #include "op_table.hpp"
@@ -44,6 +45,7 @@
 #include "paddle_utils.hpp"
 #include "place.hpp"
 #include "transformations/resolve_names_collisions.hpp"
+#include "openvino/opsets/opset7.hpp"
 #include "decoder_json.hpp"
 
 using namespace ov::frontend::paddle::op::default_opset;
@@ -129,11 +131,11 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
         }
         if (op.type == "if") {
             // only one input cond, we need to parepare if_inputs and else_inputs and sub block index
-            FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 2, "if op has two blocks"
-            const std::vector<int32_t> sub_block_indexs;
-            const size_t if_block_id = op.sub_block_idxs[0];
+            FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 2, "if op has two blocks");
+            std::vector<int32_t> sub_block_indexs;
+            auto if_block_id = op.sub_block_idxs[0];
             sub_block_indexs.push_back(if_block_id);
-            auto& if_input_ids = op.get_sub_input_ids(if_block_id);
+            auto& if_input_ids = op.get_sub_inputs_ids(if_block_id);
             for (auto& inputs : if_input_ids) {
                 auto port_name = std::to_string(inputs);
                 auto it = nodes.find(port_name);
@@ -141,9 +143,9 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
                                               "cant' find the input:", port_name, " for type ", type);
                  named_inputs["if_inputs"].push_back(it->second);
             }
-            const size_t else_block_id = op.sub_block_idxs[1];
+            auto else_block_id = op.sub_block_idxs[1];
             sub_block_indexs.push_back(else_block_id);
-            auto& else_input_ids = op.get_sub_input_ids(else_block_id);
+            auto& else_input_ids = op.get_sub_inputs_ids(else_block_id);
             for (auto& inputs : else_input_ids) {
                 auto port_name = std::to_string(inputs);
                 auto it = nodes.find(port_name);
@@ -151,6 +153,8 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
                                               "cant' find the input:", port_name, " for type ", type);
                 named_inputs["else_inputs"].push_back(it->second);
             }
+            auto sub_block_indexs_node = ov::opset7::Constant::create(ov::element::i32, {2}, sub_block_indexs);
+            named_inputs["sub_block_indexs"].push_back(sub_block_indexs_node);
         }
         NamedOutputs outputs;
         // In case the conversion function throws exception
@@ -314,7 +318,8 @@ std::vector<std::shared_ptr<ov::Model>> FrontEnd::convert_each_node(
 using SubblockInfo = std::map<
     int32_t,
     std::tuple<std::string, std::vector<std::shared_ptr<BaseTensorPlace>>, std::vector<std::shared_ptr<BaseTensorPlace>>>>;
-void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, SubblockInfo& subblock_info) {
+void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, SubblockInfo& subblock_info,
+        std::shared_ptr<ov::frontend::InputModel>  model = nullptr) {
     if (auto op_place = std::dynamic_pointer_cast<ProtoOpPlace>(base_op_place)) {
         const auto& op_desc = op_place->get_desc();
         if (op_desc.type() == "conditional_block") {
@@ -358,22 +363,23 @@ void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, 
         if (op.type == "if") {
             // get inputs and output block
             for (auto& block_index : op.sub_block_idxs) {
-                auto& input_ids = op.get_sub_input_ids(block_index);
-                auto& output_ids = op.get_sub_output_ids(block_index);
-                auto& var_place = model->get_var_place();
+                auto& input_ids = op.get_sub_inputs_ids(block_index);
+                auto& output_ids = op.get_sub_outputs_ids(block_index);
                 std::vector<std::shared_ptr<BaseTensorPlace>> outp_tensors;
                 std::vector<std::shared_ptr<BaseTensorPlace>> inp_tensors;
                 for (auto id : input_ids)  {
                     auto port_name = std::to_string(id);
-                    auto it = var_place.find(port_name);
-                    FRONT_END_OP_CONVERSION_CHECK(it != var_place.end(), "find the input:", port_name);
-                    inp_tensors.insert(it->second);
+                    auto place = model->get_place_by_tensor_name(port_name);
+                    FRONT_END_OP_CONVERSION_CHECK(place != nullptr, "find the input:", port_name);
+                    auto tensor_place = std::dynamic_pointer_cast<BaseTensorPlace>(place);
+                    inp_tensors.push_back(tensor_place);
                 }
                 for (auto id : output_ids)  {
                     auto port_name = std::to_string(id);
-                    auto it = var_place.find(port_name);
-                    FRONT_END_OP_CONVERSION_CHECK(it != var_place.end(), "find the input:", port_name);
-                    outp_tensors.insert(it->second);
+                    auto place = model->get_place_by_tensor_name(port_name);
+                    FRONT_END_OP_CONVERSION_CHECK(place != nullptr, "find the input:", port_name);
+                    auto tensor_place = std::dynamic_pointer_cast<BaseTensorPlace>(place);
+                    outp_tensors.push_back(tensor_place);
                 }
                 subblock_info[block_index] = std::make_tuple(op.type, inp_tensors, outp_tensors);
             }
@@ -461,7 +467,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
             }
         } else if (const auto& op_place = std::dynamic_pointer_cast<JsonOpPlace>(base_op_place)) {
             const auto& op = op_place->get_op();
-            if (op.type == "data" || op.type == "fetch") {
+            if (op.type == "data" || op.type == "fetch" || op.type == "yield") {
                 // inputs and outputs are stored in the model already
                 continue;
             } else if (op.is_parameter) {
@@ -501,7 +507,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     split_index++;
                 }
             } else {
-                try_update_sublock_info(op_place, subblock_inputs_outputs);
+                try_update_sublock_info(op_place, subblock_inputs_outputs, frontend_model);
                 paddle::NamedOutputs named_outputs = func(nodes_dict, op_place);
                 if (!named_outputs.empty()) {
                     const auto& tensor_name = op.name;
@@ -517,31 +523,40 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     }
                     std::cout << "node_name:" << node->get_friendly_name() << std::endl;
                     auto output_name = get_output_name_by_op_type(op.type);
-                    size_t idx = 0;
+                    size_t name_idx = 0;
+                    size_t output_idx = 0;
                     for (const auto& port : op.outputPorts) {
                         if (!port.used)  {
-                            if (op.type == "unique") idx++;
+                            if (op.type == "unique") name_idx++;
                             continue;
                         }
+                        // cal
                         std::string port_name = std::to_string(port.id);
-                        FRONT_END_OP_CONVERSION_CHECK(idx < output_name.size(), "idx is greater than output name size, idx:", idx);
-                        auto it = named_outputs.find(output_name[idx]);
-                        std::cout << "port_name:" << port_name << "output_name[idx]:" << output_name[idx] << std::endl;
-                        FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[idx]);
+                        FRONT_END_OP_CONVERSION_CHECK(name_idx < output_name.size(), "idx is greater than output name size, idx:", name_idx);
+                        auto it = named_outputs.find(output_name[name_idx]);
+                        std::cout << "port_name:" << port_name << "output_name[idx]:" << output_name[name_idx] << std::endl;
+                        FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[name_idx]);
                         const auto& ng_outputs = it->second;
-                        FRONT_END_OP_CONVERSION_CHECK(ng_outputs.size() > 0, "at least one output for output name ", output_name[idx]);
+                        FRONT_END_OP_CONVERSION_CHECK(ng_outputs.size() > 0, "at least one output for output name ", output_name[name_idx]);
                         if (ng_outputs.size() == 1) {
                             nodes_dict[port_name] = ng_outputs[0];
+                            name_idx++;
+                        } else if (op.type == "if") {
+                           nodes_dict[port_name] = ng_outputs[output_idx];
+                           output_idx++;
+                           if (output_idx == ng_outputs.size()) {
+                               output_idx = 0;
+                           }
                         } else {
                             // split has multi output, use name_0, name_1, name_2 to save output
-                            size_t split_index = 0;
-                            for (const auto& ng_output : ng_outputs) {
-                                auto output_port_name = port_name + "_" + std::to_string(split_index);
-                                nodes_dict[output_port_name] = ng_output;
-                                split_index++;
-                            }
+                           size_t split_index = 0;
+                           for (const auto& ng_output : ng_outputs) {
+                               auto output_port_name = port_name + "_" + std::to_string(split_index);
+                               nodes_dict[output_port_name] = ng_output;
+                               split_index++;
+                           }
+                           name_idx++;
                         }
-                        idx++;
                     }
                 }
             }

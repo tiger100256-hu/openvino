@@ -30,7 +30,7 @@ public:
         auto& programJson = m_graph.json_data.at("program");
         auto& regionsJson = programJson.at("regions");
         for (auto& regionJson : regionsJson) {
-            auto region = std::make_shared<Region>()
+            auto region = std::make_shared<Region>();
             json::decodeRegion(regionJson, region);
             m_graph.regions.push_back(std::move(region));
         }
@@ -39,12 +39,12 @@ public:
 
     // use for parse sub block in if node
     bool ParseFromJson(const nlohmann::json& sub_json) {
-        m_graph.magic = 'sub_pir'
-        m_graph.trainable = 'false';
-        m_graph.version = '1'
+        m_graph.magic = "sub_pir";
+        m_graph.trainable = false;
+        m_graph.version = 1;
         auto& regionsJson = sub_json.at("regions");
         for (auto& regionJson : regionsJson) {
-            Region newRegion;
+            auto newRegion = std::make_shared<Region>();
             json::decodeRegion(regionJson, newRegion);
             m_graph.regions.push_back(std::move(newRegion));
         }
