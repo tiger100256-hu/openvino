@@ -19,7 +19,8 @@ mark_file = os.path.join(out_folder, "generate_done.txt")
 gen_files = glob.glob(os.path.join(gen_folder, '**/generate_*.py'), recursive=True)
 failed_filelist = []
 
-if paddle.__version__ >= '3.0.0':
+enable_pir = os.getenv('FLAGS_enable_pir_api')
+if  enable_pir == "1":
     failed_filelist = [
     "generate_2in_2out.py",
     "generate_2in_2out_dynbatch.py",

@@ -534,7 +534,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                         std::string port_name = std::to_string(port.id);
                         FRONT_END_OP_CONVERSION_CHECK(name_idx < output_name.size(), "idx is greater than output name size, idx:", name_idx);
                         auto it = named_outputs.find(output_name[name_idx]);
-                        std::cout << "port_name:" << port_name << "output_name[" << idx << "]:" << output_name[name_idx] << std::endl;
+                        std::cout << "port_name:" << port_name << "output_name[" << name_idx << "]:" << output_name[name_idx] << std::endl;
                         FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[name_idx]);
                         const auto& ng_outputs = it->second;
                         FRONT_END_OP_CONVERSION_CHECK(ng_outputs.size() > 0, "at least one output for output name ", output_name[name_idx]);

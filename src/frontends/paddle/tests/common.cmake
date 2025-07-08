@@ -17,7 +17,7 @@ endif()
 
 if(NOT EXIT_CODE EQUAL 0)
     set(paddlepaddle_FOUND OFF)
-    message(ERROR "Python requirement file ${PADDLE_REQ} is not installed, PaddlePaddle testing models weren't generated, some tests will fail due models not found")
+    message(WARNING "Python requirement file ${PADDLE_REQ} is not installed, PaddlePaddle testing models weren't generated, some tests will fail due models not found")
 else()
     set(paddlepaddle_FOUND ON)
 endif()
@@ -84,8 +84,7 @@ if(PADDLEDET_RESULT AND GEN)
 	#        COMMAND ${Python3_EXECUTABLE} -m pip list > ${GEN_ENV_PY_LIST}
 	#        DEPENDS ${PADDLE_REQ})
     add_custom_command(OUTPUT ${OUT_FILE}
-            COMMAND  ${CMAKE_COMMAND} -E env PYTHONPATH=${PADDLEDET_DIRNAME}
-                                      -E env FLAGS_enable_pir_api=${ENABLE_PIR}
+            COMMAND  ${CMAKE_COMMAND} -E env PYTHONPATH=${PADDLEDET_DIRNAME} FLAGS_enable_pir_api=${ENABLE_PIR}
                 ${Python3_EXECUTABLE}
                     ${CODE_ROOT_DIR}/test_models/gen_wrapper.py
                     ${CODE_ROOT_DIR}/test_models/gen_scripts

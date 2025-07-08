@@ -2,4 +2,4 @@
 -c ../../../bindings/python/constraints.txt
 protobuf
 numpy
-paddlepaddl
+paddlepaddle
