@@ -9,7 +9,7 @@ namespace frontend {
 namespace paddle {
 namespace op {
 NamedOutputs assign_value(const NodeContext& node) {
-    std::vector<int32_t> shape = node.get_attribute<std::vector<int32_t>>("shape");
+    std::vector<int32_t> shape = node.get_attribute<std::vector<int32_t>>("shape", {});
     auto dtype = node.get_attribute<ov::element::Type>("dtype");
     std::shared_ptr<Node> const_node;
 

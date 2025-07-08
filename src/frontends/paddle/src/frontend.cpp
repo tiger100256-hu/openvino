@@ -534,7 +534,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                         std::string port_name = std::to_string(port.id);
                         FRONT_END_OP_CONVERSION_CHECK(name_idx < output_name.size(), "idx is greater than output name size, idx:", name_idx);
                         auto it = named_outputs.find(output_name[name_idx]);
-                        std::cout << "port_name:" << port_name << "output_name[idx]:" << output_name[name_idx] << std::endl;
+                        std::cout << "port_name:" << port_name << "output_name[" << idx << "]:" << output_name[name_idx] << std::endl;
                         FRONT_END_OP_CONVERSION_CHECK(it != named_outputs.end(), "can't find output name", output_name[name_idx]);
                         const auto& ng_outputs = it->second;
                         FRONT_END_OP_CONVERSION_CHECK(ng_outputs.size() > 0, "at least one output for output name ", output_name[name_idx]);
@@ -542,12 +542,13 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                             nodes_dict[port_name] = ng_outputs[0];
                             name_idx++;
                         } else if (op.type == "if") {
+                           // subblock may has multi outputs in one name out
                            nodes_dict[port_name] = ng_outputs[output_idx];
                            output_idx++;
                            if (output_idx == ng_outputs.size()) {
                                output_idx = 0;
                            }
-                        } else {
+                        } else if (port.type == "t_vec") {
                             // split has multi output, use name_0, name_1, name_2 to save output
                            size_t split_index = 0;
                            for (const auto& ng_output : ng_outputs) {
@@ -556,6 +557,9 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                                split_index++;
                            }
                            name_idx++;
+                        } else {
+                            FRONT_END_OP_CONVERSION_CHECK(false,
+                                "port name:", port.id, "  can't much output name:", output_name[name_idx]);
                         }
                     }
                 }

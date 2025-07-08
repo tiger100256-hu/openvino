@@ -179,9 +179,17 @@ std::vector<std::pair<ov::element::Type, ov::PartialShape>> DecoderJson::get_out
     }
     if (index > output_types.size() -1 ) {
        FRONT_END_GENERAL_CHECK(false, "can't find ouput name ", port_name);
-       return{};
+       return {};
+    } else if (index < fix_output_name.size() - 1) {
+        return {output_types[index]};
+    } else {
+        std::vector<std::pair<ov::element::Type, ov::PartialShape>> all_left_output_types;
+        while (index < output_types.size()) {
+            all_left_output_types.push_back(output_types[index]);
+            index++;
+        }
+        return all_left_output_types;
     }
-    return {output_types[index]};
 }
 
 ov::element::Type DecoderJson::get_out_port_type(const std::string& port_name) const {
