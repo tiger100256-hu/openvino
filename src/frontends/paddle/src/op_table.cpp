@@ -406,7 +406,7 @@ const std::string& get_input_name_by_op_type(const std::string& type, size_t ind
             {"fill_any_like", {}},
             {"full_like", {"X", "full"}},
             {"fill_constant", {}},
-            {"full_with_tensor", {"ValueTensor", "full"}},
+            {"full_with_tensor", {"ValueTensor", "ShapeTensor"}},
             {"fill_constant_batch_size_like", {}},
             {"flatten_contiguous_range", {}},
             {"flatten", {"X"}},

@@ -12,17 +12,12 @@ namespace paddle {
 namespace op {
 NamedOutputs fill_constant(const NodeContext& node) {
     std::vector<int64_t> shape;
-    if (node.is_json_format()) {
-        auto full = node.get_input("full");
-        auto shape_node = full.get_node_shared_ptr();
-        auto shape_const = std::dynamic_pointer_cast<ov::op::v0::Constant>(shape_node);
-        shape = shape_const->cast_vector<int64_t>();
-    } else {
+    Output<Node> shape_node;
+    if (!node.is_json_format()) {
         shape = node.get_attribute<std::vector<int64_t>>("shape");
     }
     auto dtype = node.get_attribute<ov::element::Type>("dtype");
     Output<Node> value_node;
-    Output<Node> shape_node;
     if (node.has_input("ValueTensor")) {
         value_node = node.get_input("ValueTensor");
     } else if (dtype == element::boolean) {
@@ -50,7 +45,7 @@ NamedOutputs fill_constant(const NodeContext& node) {
 
     PADDLE_OP_CHECK(node,
                     node.has_attribute("shape") || node.has_input("ShapeTensor") ||
-                    node.has_input("ShapeTensorList") || node.has_input("full"),
+                    node.has_input("ShapeTensorList"),
                     "fill_constant shape not set");
 
     if (node.has_input("ShapeTensor")) {
