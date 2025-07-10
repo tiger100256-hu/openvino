@@ -121,7 +121,7 @@ def test_model_dyn_conditionalblock_only(a):
 a = paddle.to_tensor([[1.0, 2.0, 3.0],
                       [4.0, 5.0, 6.0]])
 # 95436: sporadic failure
-#exportModel('conditional_block_dyn_conditionalblock_only', test_model_dyn_conditionalblock_only, [a], target_dir=sys.argv[1])
+exportModel('conditional_block_dyn_conditionalblock_only', test_model_dyn_conditionalblock_only, [a], dyn_shapes = [[None, 3]], target_dir=sys.argv[1])
 
 
 """"""""""""""""""""""""""""""""""""""""""""""""""""""
