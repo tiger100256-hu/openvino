@@ -23,6 +23,9 @@ def paddle_rnn_lstm(input_size, hidden_size, layers, direction):
         prev_c = paddle.ones(shape=[layers * num_of_directions, 4, hidden_size], dtype=np.float32, name="const_2")
 
         y, (h, c) = rnn(data, (prev_h, prev_c))
+        output1 = paddle.scale(y, scale=1.0, bias=0.0, bias_after_scale=True, act=None, name=None)
+        output2 = paddle.scale(h, scale=1.0, bias=0.0, bias_after_scale=True, act=None, name=None)
+
         relu_1 = paddle.nn.functional.relu(c, name="relu_1")
         relu_2 = paddle.nn.functional.relu(c, name="relu_2")
         relu_3 = paddle.nn.functional.relu(c, name="relu_3")

@@ -66,9 +66,17 @@ if(paddlepaddle_FOUND)
     DownloadAndCheck(${PADDLEDET_OPS_URL} ${PADDLEDET_DIRNAME}/ops.py PADDLEDET_FATAL PADDLEDET_RESULT ${PADDLEDET_OPS_SHA256})
 endif()
 
+
+if(PADDLE_VERSION VERSION_GREATER_EQUAL "3.0.0" OR PADDLE_VERSION VERSION_EQUAL "0.0.0")
+    set(paddle_gen_env_version "3")
+else()
+    set(paddle_gen_env_version "2")
+endif()
 set(TEST_PADDLE_MODELS_DIRNAME ${TEST_MODEL_ZOO}/paddle_test_models/${PDVTAG})
 target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODELS_DIRNAME=\"${TEST_PADDLE_MODELS_DIRNAME}/\")
 target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_MODEL_EXT=\"${TEST_PADDLE_MODEL_EXT}\")
+target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_ENABLE_PIR=\"${ENABLE_PIR}\")
+target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_VERSION=\"${paddle_gen_env_version}\")
 
 # If 'paddlepaddle' is not found, code will still be compiled, but models will not be generated and tests will fail
 # This is done this way for 'code style' and check cases - cmake shall pass, but CI machine doesn't need to have
