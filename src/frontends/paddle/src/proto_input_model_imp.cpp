@@ -60,6 +60,7 @@ void ProtoInputModelImpl::load_places() {
                     out_port->set_target_tensor(tensor);
 
                     // connect out_port and op
+                    std::cout << "in op.type:" << op.type() << " " << output.parameter() << std::endl;
                     op_place->add_out_port(out_port, output.parameter());
                     out_port->set_op(op_place);
                 }
@@ -75,6 +76,7 @@ void ProtoInputModelImpl::load_places() {
                     in_port->set_source_tensor(tensor);
 
                     // connect in_port and op
+                    std::cout << "out op.type:" << op.type() << " " << input.parameter() << std::endl;
                     op_place->add_in_port(in_port, input.parameter());
                     in_port->set_op(op_place);
                 }
