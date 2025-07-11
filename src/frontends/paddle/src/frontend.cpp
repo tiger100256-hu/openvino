@@ -590,6 +590,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
         }
     }
     std::shared_ptr<ov::Model> main_block_func;
+    std::cout << "parameter_nodes.size():" << parameter_nodes.size() << std::endl;
     if (parameter_nodes.size() > 0) {
         main_block_func = std::make_shared<ov::Model>(result_nodes, parameter_nodes);
     } else {

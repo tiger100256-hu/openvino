@@ -24,19 +24,16 @@ else:
     x = fluid.data(name='xxx', shape=[1, 3, 4, 4], dtype='float32')
     test_layer = fluid.layers.conv2d(input=x, num_filters=5, filter_size=(1, 1), stride=(1, 1), padding=(1, 1),
                                  dilation=(1, 1), groups=1, bias_attr=False)
-if paddle.__version__ >= '3.0.0':
+if paddle.__version__ >= '2.0.0':
     relu = paddle.nn.functional.relu(test_layer)
-    out = paddle.scale(relu, scale=1.0, bias=0.0, bias_after_scale=True, act=None, name=None)
-elif paddle.__version__ >= '2.0.0':
-    out = paddle.nn.functional.relu(test_layer)
 else:
-    out = fluid.layers.relu(test_layer)
+    relu = fluid.layers.relu(test_layer)
 
 
 exe = fluid.Executor(fluid.CPUPlace())
 exe.run(fluid.default_startup_program())
 inp_dict = {'xxx': inp_blob}
-var = [out]
+var = [relu]
 res_paddle = exe.run(fluid.default_main_program(),
                      fetch_list=var, feed=inp_dict)
 
