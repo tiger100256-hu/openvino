@@ -33,7 +33,6 @@ if  enable_pir == "1":
     "generate_conv2d_relu.py",
     "generate_conv2d_s.py",
     "generate_conv2d_transpose.py",
-    "generate_elu.py",
     "generate_embedding.py",
     "generate_generate_proposal_v2.py",
     "generate_group_norm.py",
