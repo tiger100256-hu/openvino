@@ -30,7 +30,6 @@ if  enable_pir == "1":
     "generate_bmm.py",
     "generate_box_coder.py",
     "generate_conv2d_combinations.py",
-    "generate_conv2d_relu.py",
     "generate_conv2d_s.py",
     "generate_conv2d_transpose.py",
     "generate_embedding.py",

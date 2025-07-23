@@ -3,10 +3,9 @@
 
 import numpy as np
 import paddle
-paddle.enable_static()
 from save_model import saveModel
 import sys
-
+import os
 
 def run_and_save_model(input_x, name, feed, fetch_list, main_prog, start_prog):
     cpu = paddle.static.cpu_places(1)
@@ -22,6 +21,7 @@ def run_and_save_model(input_x, name, feed, fetch_list, main_prog, start_prog):
 
 
 def paddle_conv2d_transpose(input_x, name, input_shape, kernel, dilation, padding, stride, groups=1, use_cudnn=True):
+    paddle.enable_static()
     main_program = paddle.static.Program()
     startup_program = paddle.static.Program()
     with paddle.static.program_guard(main_program, startup_program):
@@ -31,6 +31,33 @@ def paddle_conv2d_transpose(input_x, name, input_shape, kernel, dilation, paddin
                                        padding=padding, param_attr=weight_attr, dilation=dilation, stride=stride, groups=groups, use_cudnn=use_cudnn)
     run_and_save_model(input_x, name, data, conv2d, main_program, startup_program)
 
+def paddle_conv2d_transpose_v3(input_x, name, input_shape, kernel, dilation, padding, stride, groups=1, use_cudnn=True):
+    conv2d_weight_param_name = "conv2d_weight" + name
+    weight_attr = paddle.ParamAttr(name=conv2d_weight_param_name, initializer=paddle.nn.initializer.Assign(kernel))
+    conv_layer = paddle.nn.Conv2DTranspose(
+        in_channels=3,      # Number of input channels (e.g., RGB image has 3)
+        out_channels=kernel.shape[0],    # Number of output channels (filters)
+        kernel_size=kernel.shape[2:4],      # Size of the convolution kernel
+        stride=stride,           # Stride of the convolution
+        padding=padding,           # Padding added to both sides of the input
+        dilation=dilation,
+        groups=groups,
+        weight_attr=weight_attr,
+        bias_attr=None
+    )
+    net = paddle.jit.to_static(conv_layer, full_graph=True)
+    net.eval()
+    x = np.random.rand(*input_shape).astype('float32');
+    model_dir = os.path.join(sys.argv[1], name)
+    model_path = os.path.join(model_dir, name)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    np.save(os.path.join(model_dir, "input0"), x)
+    input_tensor = paddle.to_tensor(x)
+    output = net(input_tensor)
+    np.save(os.path.join(model_dir, "output0"), output.numpy())
+    input_spec = [paddle.static.InputSpec(shape=input_shape, dtype='float32')]
+    paddle.jit.save(net, model_path, input_spec)
 
 if __name__ == "__main__":
 
@@ -135,13 +162,29 @@ if __name__ == "__main__":
             "use_cudnn": False
         }
     ]
-    for test in test_cases:
+    enable_pir = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
 
-        paddle_conv2d_transpose(test['input_x'], test['name'], test["input_shape"],
-                    test['kernel'], test['dilation'],
-                    test['padding'],
-                    test['stride'],
-                    1 if "groups" not in test else test['groups'],
-                    True if "use_cudnn" not in test else test['use_cudnn'])
+    for test in test_cases:
+        if paddle.__version__ >= '3.0.0' and enable_pir:
+            paddle_conv2d_transpose_v3(test['input_x'], test['name'], test["input_shape"],
+                        test['kernel'], test['dilation'],
+                        test['padding'],
+                        test['stride'],
+                        1 if "groups" not in test else test['groups'],
+                        True if "use_cudnn" not in test else test['use_cudnn'])
+        else:
+            paddle_conv2d_transpose(test['input_x'], test['name'], test["input_shape"],
+                        test['kernel'], test['dilation'],
+                        test['padding'],
+                        test['stride'],
+                        1 if "groups" not in test else test['groups'],
+                        True if "use_cudnn" not in test else test['use_cudnn'])
+
 
 
