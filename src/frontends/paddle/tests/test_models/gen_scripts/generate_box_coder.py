@@ -1,8 +1,20 @@
 import sys
+import os
 
 import numpy as np
 import paddle
-from ops import box_coder
+enable_pir = False;
+if os.getenv('FLAGS_enable_pir_api') == '1':
+    enable_pir = True
+elif os.getenv('FLAGS_enable_pir_api') == '0':
+    enable_pir = False
+else:
+    enable_pir = False
+
+if paddle.__version__ >= '3.0.0' and enable_pir :
+    from paddle.vision.ops import box_coder
+else:
+    from ops import box_coder
 
 from save_model import exportModel, saveModel
 
@@ -44,7 +56,7 @@ def test_box_coder(name: str, prior_box, prior_box_var, target_box, code_type, b
         outs = exe.run(
             feed=feed_dict,
             fetch_list=[out])
-        
+
         feed_vars = [prior_box_decode, target_box_decode]
         if is_tensor:
             feed_vars.append(prior_box_var_decode)

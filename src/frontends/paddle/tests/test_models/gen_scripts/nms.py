@@ -21,8 +21,19 @@ else:
 # scores shape (N, C, M) if shared else (M, C)
 def NMS(name: str, bboxes, scores, attrs: dict, rois_num=None, verbose=False):
     import paddle
+    enable_pir = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
+
+    if paddle.__version__ >= '3.0.0' and enable_pir :
+        from paddle.vision.ops import matrix_nms as matrix_nms
+    else:
+        from ops import matrix_nms as matrix_nms
     from ops import multiclass_nms as multiclass_nms
-    from ops import matrix_nms as matrix_nms
     paddle.enable_static()
 
     with paddle.static.program_guard(paddle.static.Program(),
@@ -105,7 +116,7 @@ def NMS(name: str, bboxes, scores, attrs: dict, rois_num=None, verbose=False):
         else:
             index = np.array(output_lod.pop(0)).astype(data_feeder.convert_dtype(
                 output[2].dtype)) if output[2] is not None else None
-            
+
         feed_vars = [node_boxes, node_scores]
         if node_rois_num is not None:
             feed_vars.append(node_rois_num)

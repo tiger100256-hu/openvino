@@ -6,7 +6,20 @@ import sys
 import numpy as np
 import paddle
 
-#print numpy array like C structure       
+#print numpy array like C structure
+def is_pir_enabled():
+    enable_pir_flag = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir_flag = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir_flag = False
+    else:
+        enable_pir_flag = False
+    if paddle.__version__ >= '3.0.0' and enable_pir_flag:
+        return True
+    else:
+        return False
+
 def print_alike(arr, seperator_begin='{', seperator_end='}', verbose=False):
     shape = arr.shape
     rank = len(shape)
@@ -38,7 +51,7 @@ def print_alike(arr, seperator_begin='{', seperator_end='}', verbose=False):
             return line
 
     if verbose:
-        print(print_array(arr, seperator_end))        
+        print(print_array(arr, seperator_end))
 
 def saveModel(name, exe, feed_vars:list, fetchlist:list, inputs:list, outputs:list, target_dir:str):
     model_dir = os.path.join(target_dir, name)
@@ -47,11 +60,12 @@ def saveModel(name, exe, feed_vars:list, fetchlist:list, inputs:list, outputs:li
 
     # print("\n\n------------- %s -----------\n" % (name))
     for i, input in enumerate(inputs):
-        feedkey = feed_vars[i].name
         # print("INPUT %s :" % (feedkey), input.shape, input.dtype, "\n")
         # print_alike(input)
         np.save(os.path.join(model_dir, "input{}".format(i)), input)
-        np.save(os.path.join(model_dir, "input{}.{}.{}".format(i, feedkey, input.dtype)), input)
+        if not is_pir_enabled():
+            feedkey = feed_vars[i].name
+            np.save(os.path.join(model_dir, "input{}.{}.{}".format(i, feedkey, input.dtype)), input)
     # print("\n")
 
     for i, output in enumerate(outputs):
@@ -87,7 +101,7 @@ def exportModel(name, dyn_func, input_data:list, target_dir:str, dyn_shapes:list
         )
 
         # dump input
-        np.save(os.path.join(model_dir, "input{}".format(idx)), data)        
+        np.save(os.path.join(model_dir, "input{}".format(idx)), data)
 
     paddle.jit.save(dyn_func, save_path, input_specs)
     print('saved exported model to {}'.format(save_path))
@@ -96,15 +110,15 @@ def exportModel(name, dyn_func, input_data:list, target_dir:str, dyn_shapes:list
     model = paddle.jit.load(save_path)
 
     result = model(*[input[:] for input in input_data])
-   
+
     # dump output for reference
     if isinstance(result, (tuple, list)):
         for idx, out in enumerate(result):
             np.save(os.path.join(model_dir, "output{}".format(idx)), out.numpy())
-    else:       
+    else:
         np.save(os.path.join(model_dir, "output{}".format(0)), result.numpy())
-    
-    if paddle.__version__ < "2.6.0": 
+
+    if paddle.__version__ < "2.6.0":
         paddle.fluid.core.clear_executor_cache()
     else:
         paddle.base.core.clear_executor_cache()
@@ -113,7 +127,7 @@ def exportModel(name, dyn_func, input_data:list, target_dir:str, dyn_shapes:list
 
 if __name__ == "__main__":
     np.set_printoptions(precision=2)
-    np.set_printoptions(suppress=True)  
+    np.set_printoptions(suppress=True)
 
     #x = np.random.randn(2,3).astype(np.float32)
     x = np.array([[[
@@ -123,7 +137,7 @@ if __name__ == "__main__":
     [
         [1, 2, 3],
         [4, 5, 6]
-    ]], 
+    ]],
     [[
         [1, 2, 3],
         [4, 5, 6]

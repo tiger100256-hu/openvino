@@ -8,9 +8,49 @@ import numpy as np
 from save_model import saveModel
 import paddle
 import sys
+import os
 
 
 def partial_sum(name: str, x, y, start_index=0, length=-1):
+    enable_pir = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
+
+    if paddle.__version__ >= '3.0.0' and enable_pir:
+        class PartialSum(paddle.nn.Layer):
+            def __init__(self, start_index, length):
+                super().__init__()
+                self.start_index = start_index
+                self.length = length
+            def forward(self, x, y):
+                sliced = []
+                axis = 0
+                for item in [x , y]:
+                    end_index = x.shape[axis] if length == -1 else start_index + length
+                    sliced.append(item.slice([axis], [start_index], [end_index]))
+                return sliced[0] + sliced[1]
+        model = PartialSum(start_index=start_index, length=length)
+        net = paddle.jit.to_static(model, full_graph=True)
+        net.eval()
+        model_dir = os.path.join(sys.argv[1], name)
+        model_path = os.path.join(model_dir, name)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        np.save(os.path.join(model_dir, "input0"), x)
+        np.save(os.path.join(model_dir, "input1"), y)
+        input_tensor0 = paddle.to_tensor(x)
+        input_tensor1 = paddle.to_tensor(y)
+        output = net(input_tensor0, input_tensor1)
+        np.save(os.path.join(model_dir, "output0"), output.numpy())
+        input_spec = [paddle.static.InputSpec(shape=x.shape, dtype=x.dtype),
+                      paddle.static.InputSpec(shape=y.shape, dtype=y.dtype)]
+        paddle.jit.save(net, model_path, input_spec)
+        return output.numpy()
+
     paddle.enable_static()
 
     with paddle.static.program_guard(paddle.static.Program(), paddle.static.Program()):

@@ -16,7 +16,7 @@ else:
     enable_pir = False
 
 if paddle.__version__ >= '3.0.0' and enable_pir:
-    class TwoInputAndTwoOutput(paddle.nn.layer):
+    class TwoInputAndTwoOutput(paddle.nn.Layer):
         def __init__(self):
             super(TwoInputAndTwoOutput, self).__init__()
             self.conv_layer1 = paddle.nn.Conv2D(
@@ -43,7 +43,7 @@ if paddle.__version__ >= '3.0.0' and enable_pir:
             self.relu2b = paddle.nn.ReLU()
             self.relu3a = paddle.nn.ReLU()
             self.relu3b = paddle.nn.ReLU()
-        def forward(x, y):
+        def forward(self, x, y):
             conv1_res = self.conv_layer1(x)
             conv2_res = self.conv_layer2(y)
             add1_res = paddle.add(conv1_res, conv2_res)

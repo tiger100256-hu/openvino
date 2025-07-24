@@ -5,7 +5,76 @@ import paddle
 import numpy as np
 import os
 import sys
-from save_model import saveModel 
+from save_model import saveModel
+
+enable_pir = False;
+if os.getenv('FLAGS_enable_pir_api') == '1':
+    enable_pir = True
+elif os.getenv('FLAGS_enable_pir_api') == '0':
+    enable_pir = False
+else:
+    enable_pir = False
+
+if paddle.__version__ >= '3.0.0' and enable_pir:
+    class TwoInputAndTwoOutput(paddle.nn.Layer):
+        def __init__(self):
+            super(TwoInputAndTwoOutput, self).__init__()
+            self.conv_layer1 = paddle.nn.Conv2D(
+                in_channels=1,      # Number of input channels (e.g., RGB image has 3)
+                out_channels=1,    # Number of output channels (filters)
+                kernel_size=1,      # Size of the convolution kernel
+                stride=1,           # Stride of the convolution
+                padding=0,           # Padding added to both sides of the input
+                dilation=1,
+                groups=1,
+                bias_attr=None
+            )
+            self.conv_layer2 = paddle.nn.Conv2D(
+                in_channels=2,      # Number of input channels (e.g., RGB image has 3)
+                out_channels=1,    # Number of output channels (filters)
+                kernel_size=1,      # Size of the convolution kernel
+                stride=1,           # Stride of the convolution
+                padding=0,           # Padding added to both sides of the input
+                dilation=1,
+                groups=1,
+                bias_attr=None
+            )
+            self.relu2a = paddle.nn.ReLU()
+            self.relu2b = paddle.nn.ReLU()
+            self.relu3a = paddle.nn.ReLU()
+            self.relu3b = paddle.nn.ReLU()
+        def forward(self, x, y):
+            conv1_res = self.conv_layer1(x)
+            conv2_res = self.conv_layer2(y)
+            add1_res = paddle.add(conv1_res, conv2_res)
+            relu2a_res = self.relu2a(add1_res)
+            relu2b_res = self.relu2b(add1_res)
+            add2_res = paddle.add(relu2a_res, relu2b_res)
+            relu3a_res = self.relu3a(add2_res)
+            relu3b_res = self.relu3b(add2_res)
+            return relu3a_res, relu3b_res
+    model = TwoInputAndTwoOutput()
+    net = paddle.jit.to_static(model, full_graph=True)
+    net.eval()
+    x = np.random.rand(1, 1, 3, 3).astype('float32');
+    y = np.random.rand(1, 2, 3, 3).astype('float32');
+    name = "2in_2out_dynbatch"
+    model_dir = os.path.join(sys.argv[1], name)
+    model_path = os.path.join(model_dir, name)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    np.save(os.path.join(model_dir, "input0"), x)
+    np.save(os.path.join(model_dir, "input1"), y)
+    input_tensor0 = paddle.to_tensor(x)
+    input_tensor1 = paddle.to_tensor(y)
+    output0, output1 = net(input_tensor0, input_tensor1)
+    np.save(os.path.join(model_dir, "output0"), output0.numpy())
+    np.save(os.path.join(model_dir, "output1"), output1.numpy())
+    input_spec = [paddle.static.InputSpec(shape=[-1,1,3,3], dtype='float32'),
+                  paddle.static.InputSpec(shape=[-1,2,3,3], dtype='float32')]
+    paddle.jit.save(net, model_path, input_spec)
+    sys.exit(0)
+
 
 if paddle.__version__ >= '2.6.0':
     import paddle.base as fluid

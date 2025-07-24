@@ -4,6 +4,7 @@
 import numpy as np
 from save_model import saveModel
 import sys
+import os
 
 def generate_proposals_v2(name: str, input_data: dict, attr: dict):
     scores_np = input_data["scores"]
@@ -17,9 +18,19 @@ def generate_proposals_v2(name: str, input_data: dict, attr: dict):
     nms_thresh = attr["nms_thresh"]
     min_size = attr["min_size"]
     pixel_offset = attr["pixel_offset"]
+    enable_pir = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
 
     import paddle
-    from ops import generate_proposals
+    if paddle.__version__ >= '3.0.0' and enable_pir :
+        from paddle.vision.ops import generate_proposals
+    else:
+        from ops import generate_proposals
 
     paddle.enable_static()
 
@@ -62,8 +73,8 @@ def generate_proposals_v2(name: str, input_data: dict, attr: dict):
             },
             fetch_list=[rois, roi_probs, rois_num])
 
-        # Save inputs in order of OpenVINO model, to facilitate Fuzzy test, 
-        # which accepts inputs and outputs in this order as well. 
+        # Save inputs in order of OpenVINO model, to facilitate Fuzzy test,
+        # which accepts inputs and outputs in this order as well.
         saveModel(name, exe, feed_vars=[scores, bbox_deltas, im_shape, anchors, variances],
                   fetchlist=[rois, roi_probs, rois_num],
                   inputs=[scores_np, bbox_deltas_np, im_shape_np, anchors_np, variances_np],

@@ -12,6 +12,7 @@ import os
 import numpy as np
 import paddle
 from save_model import saveModel
+from save_model import is_pir_enabled
 
 
 # print numpy array like C structure
@@ -71,13 +72,15 @@ def main():
     data = np.array([-2, 0, 1]).astype('float32')
 
     relu("relu_unsupported", data)
-
-    with open(os.path.join(sys.argv[1], "relu_unsupported", "relu_unsupported.pdmodel"), mode='rb') as file:
+    extention = ".pdmodel"
+    if is_pir_enabled():
+        extention = ".json"
+    with open(os.path.join(sys.argv[1], "relu_unsupported", "relu_unsupported" + extention), mode='rb') as file:
         modelContent = file.read()
 
     modelContent = modelContent.replace(b"relu", b"rxyz")
 
-    with open(os.path.join(sys.argv[1], "relu_unsupported", "relu_unsupported.pdmodel"), mode='wb') as file:
+    with open(os.path.join(sys.argv[1], "relu_unsupported", "relu_unsupported" + extention), mode='wb') as file:
         file.write(modelContent)
 
 

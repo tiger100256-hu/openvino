@@ -6,6 +6,7 @@ import paddle
 from paddle.nn.functional import interpolate
 from save_model import saveModel
 import sys
+import os
 
 def run_and_save_model(input_x, name, feed, fetch_list, main_prog, start_prog):
     cpu = paddle.static.cpu_places(1)
@@ -25,6 +26,39 @@ def run_and_save_model(input_x, name, feed, fetch_list, main_prog, start_prog):
 
 def paddle_interpolate(x, sizes=None, scale_factor=None, mode='nearest', align_corners=True,
                      align_mode=0, data_format='NCHW', name=None):
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
+
+    if paddle.__version__ >= '3.0.0' and enable_pir :
+        class PaddleInterpolate(paddle.nn.Layer):
+            def __init__(self, x):
+                super(PaddleInterpolate, self).__init__()
+                self.batch_norm = paddle.nn.BatchNorm(num_channels=x.shape[1], use_global_stats=True, epsilon=0)
+            def forward(self, x):
+                interp = interpolate(x, size=sizes, scale_factor=scale_factor,
+                                     mode=mode, align_corners=align_corners, align_mode=align_mode,
+                                     data_format=data_format, name=name)
+                result1 = self.batch_norm(interp)
+                return result1
+        model = PaddleInterpolate(x)
+        net = paddle.jit.to_static(model, full_graph=True)
+        net.eval()
+        model_dir = os.path.join(sys.argv[1], name)
+        model_path = os.path.join(model_dir, name)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        np.save(os.path.join(model_dir, "input0"), x)
+        input_tensor0 = paddle.to_tensor(x)
+        output0 = net(input_tensor0)
+        np.save(os.path.join(model_dir, "output0"), output0.numpy())
+        input_spec = [paddle.static.InputSpec(shape=x.shape, dtype=x.dtype)]
+        paddle.jit.save(net, model_path, input_spec)
+        return output0.numpy();
+
     paddle.enable_static()
     main_program = paddle.static.Program()
     startup_program = paddle.static.Program()
@@ -102,6 +136,42 @@ def resize_downsample_nearest():
                                        align_mode=test['align_mode'], data_format='NCHW', name=test['name'])
 
 def paddle_interpolate_tensor_size(data, sizes, mode='nearest', align_corners=True, align_mode=0, data_format='NCHW', name=None):
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
+
+    if paddle.__version__ >= '3.0.0' and enable_pir :
+        class PaddleInterpolate(paddle.nn.Layer):
+            def __init__(self, x):
+                super(PaddleInterpolate, self).__init__()
+                self.batch_norm = paddle.nn.BatchNorm(num_channels=x.shape[1], use_global_stats=True, epsilon=0)
+            def forward(self, x, sizes):
+                interp = interpolate(x, size=sizes, scale_factor=None,
+                                     mode=mode, align_corners=align_corners, align_mode=align_mode,
+                                     data_format=data_format, name=name)
+                result1 = self.batch_norm(interp)
+                return result1
+        model = PaddleInterpolate(data)
+        net = paddle.jit.to_static(model, full_graph=True)
+        net.eval()
+        model_dir = os.path.join(sys.argv[1], name)
+        model_path = os.path.join(model_dir, name)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        np.save(os.path.join(model_dir, "input0"), data)
+        np.save(os.path.join(model_dir, "input1"), sizes)
+        input_tensor0 = paddle.to_tensor(data)
+        input_tensor1 = paddle.to_tensor(sizes)
+        output0 = net(input_tensor0, input_tensor1 )
+        np.save(os.path.join(model_dir, "output0"), output0.numpy())
+        input_spec = [paddle.static.InputSpec(shape=data.shape, dtype=data.dtype),
+                      paddle.static.InputSpec(shape=sizes.shape, dtype=sizes.dtype)]
+        paddle.jit.save(net, model_path, input_spec)
+        return output0.numpy();
+
     paddle.enable_static()
     main_program = paddle.static.Program()
     startup_program = paddle.static.Program()
@@ -334,8 +404,44 @@ def linear_upsample_tensor_size():
     sizes = np.array([8,], dtype="int32")
 
     test_case = [{'name': 'linear_upsample_tensor_size', 'align_corners': False, 'align_mode': 1}]
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
 
     for test in test_case:
+        if paddle.__version__ >= '3.0.0' and enable_pir :
+            class PaddleInterpolate(paddle.nn.Layer):
+                def __init__(self, x):
+                    super(PaddleInterpolate, self).__init__()
+                    self.batch_norm = paddle.nn.BatchNorm(num_channels=x.shape[1], use_global_stats=True, epsilon=0)
+                def forward(self, x, sizes):
+                    interp = interpolate(x, size=sizes, scale_factor=None,
+                                 mode='linear', align_corners=test['align_corners'], align_mode=test['align_mode'],
+                                 data_format='NCW', name=test['name'])
+                    result1 = self.batch_norm(interp)
+                    return result1
+            model = PaddleInterpolate(data)
+            net = paddle.jit.to_static(model, full_graph=True)
+            net.eval()
+            name = test['name']
+            model_dir = os.path.join(sys.argv[1], name)
+            model_path = os.path.join(model_dir, name)
+            if not os.path.exists(model_dir):
+                os.makedirs(model_dir)
+            np.save(os.path.join(model_dir, "input0"), data)
+            np.save(os.path.join(model_dir, "input1"), sizes)
+            input_tensor0 = paddle.to_tensor(data)
+            input_tensor1 = paddle.to_tensor(sizes)
+            output0 = net(input_tensor0, input_tensor1)
+            np.save(os.path.join(model_dir, "output0"), output0.numpy())
+            input_spec = [paddle.static.InputSpec(shape=data.shape, dtype=data.dtype),
+                          paddle.static.InputSpec(shape=sizes.shape, dtype=sizes.dtype)]
+            paddle.jit.save(net, model_path, input_spec)
+            continue
+
         main_program = paddle.static.Program()
         startup_program = paddle.static.Program()
         with paddle.static.program_guard(main_program, startup_program):

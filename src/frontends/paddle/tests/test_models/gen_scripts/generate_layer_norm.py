@@ -8,6 +8,7 @@ import numpy as np
 from save_model import saveModel
 import paddle
 import sys
+import os
 
 if paddle.__version__ >= '2.6.0':
     from paddle.base import param_attr
@@ -17,8 +18,38 @@ else:
 data_type = 'float32'
 
 def layer_norm(name:str, x, begin_norm_axis, scale=True, shift=True, param_attr=None, bias_attr=None):
+    enable_pir = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
+
+    if paddle.__version__ >= '3.0.0' and enable_pir:
+        if scale == False:
+            weight_attr = False;
+        else:
+            weight_attr = param_attr;
+        if shift == False:
+            bias_attr = False;
+        layer_norm_layer = paddle.nn.LayerNorm(normalized_shape=x.shape[begin_norm_axis:], weight_attr=weight_attr, bias_attr=bias_attr)
+        net = paddle.jit.to_static(layer_norm_layer, full_graph=True)
+        net.eval()
+        model_dir = os.path.join(sys.argv[1], name)
+        model_path = os.path.join(model_dir, name)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        np.save(os.path.join(model_dir, "input0"), x)
+        input_tensor = paddle.to_tensor(x)
+        output = net(input_tensor)
+        np.save(os.path.join(model_dir, "output0"), output.numpy())
+        input_spec = [paddle.static.InputSpec(shape=x.shape, dtype=x.dtype)]
+        paddle.jit.save(net, model_path, input_spec)
+        return output.numpy()
+
     paddle.enable_static()
-    
+
     with paddle.static.program_guard(paddle.static.Program(), paddle.static.Program()):
         data = paddle.static.data(name='x', shape=x.shape, dtype = data_type)
         out = paddle.static.nn.layer_norm(input=data, scale=scale, shift=shift,\

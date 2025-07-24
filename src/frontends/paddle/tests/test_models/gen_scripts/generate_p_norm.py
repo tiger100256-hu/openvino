@@ -9,6 +9,7 @@ import sys
 
 import numpy as np
 import paddle
+import os
 
 if paddle.__version__ >= '2.6.0':
     from paddle.base.layer_helper import LayerHelper
@@ -17,7 +18,6 @@ else:
 
 from save_model import saveModel
 
-paddle.enable_static()
 
 
 def p_norm_ref(x, p=None, axis=None, epsilon=1e-12, keepdim=None, name=None):
@@ -37,6 +37,39 @@ def p_norm_ref(x, p=None, axis=None, epsilon=1e-12, keepdim=None, name=None):
 
 
 def p_norm(name: str, x, axis, p, keepdim):
+    enable_pir = False;
+    if os.getenv('FLAGS_enable_pir_api') == '1':
+        enable_pir = True
+    elif os.getenv('FLAGS_enable_pir_api') == '0':
+        enable_pir = False
+    else:
+        enable_pir = False
+
+    if paddle.__version__ >= '3.0.0' and enable_pir:
+        class PNormLayer(paddle.nn.Layer):
+            def __init__(self, p=2.0, axis=1, keepdim=True):
+                super().__init__()
+                self.p = p
+                self.axis = axis
+                self.keepdim = keepdim
+            def forward(self, x):
+                return paddle.norm(x, p=self.p, axis=self.axis, keepdim=self.keepdim)
+        model = PNormLayer(p = p, axis =axis, keepdim = keepdim)
+        net = paddle.jit.to_static(model, full_graph=True)
+        net.eval()
+        model_dir = os.path.join(sys.argv[1], name)
+        model_path = os.path.join(model_dir, name)
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        np.save(os.path.join(model_dir, "input0"), x)
+        input_tensor = paddle.to_tensor(x)
+        output = net(input_tensor)
+        np.save(os.path.join(model_dir, "output0"), output.numpy())
+        input_spec = [paddle.static.InputSpec(shape=x.shape, dtype=x.dtype)]
+        paddle.jit.save(net, model_path, input_spec)
+        return output.numpy()
+
+    paddle.enable_static()
     with paddle.static.program_guard(paddle.static.Program(), paddle.static.Program()):
         node_x = paddle.static.data(name='x', shape=x.shape, dtype=x.dtype)
 
@@ -74,7 +107,7 @@ def main():
     input_shape = (3, 5, 6)
     input_data = np.random.rand(*input_shape).astype(np.float32)
     paddle_result = p_norm('p_norm5', input_data, axis=1, p=float('-inf'), keepdim=True)
-    
+
     input_shape = (3, 6, 7)
     input_data = np.zeros(input_shape).astype(np.float32)
     paddle_result = p_norm('p_norm6', input_data, axis=0, p=0.0, keepdim=None)

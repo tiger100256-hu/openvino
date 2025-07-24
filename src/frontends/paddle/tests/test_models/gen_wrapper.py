@@ -22,33 +22,8 @@ failed_filelist = []
 enable_pir = os.getenv('FLAGS_enable_pir_api')
 if  enable_pir == "1":
     failed_filelist = [
-    "generate_2in_2out.py",
-    "generate_2in_2out_dynbatch.py",
     "generate_assign.py",
-    "generate_assign_value.py",
-    "generate_batch_norm.py",
-    "generate_bmm.py",
-    "generate_box_coder.py",
-    "generate_conv2d_combinations.py",
-    "generate_conv2d_s.py",
-    "generate_conv2d_transpose.py",
-    "generate_embedding.py",
-    "generate_generate_proposal_v2.py",
-    "generate_group_norm.py",
-    "generate_interpolate.py",
-    "generate_layer_norm.py",
-    "generate_loop.py",
-    "generate_lower_version.py",
-    "generate_matrix_nms.py",
-    "generate_mul.py",
-    "generate_multiclass_nms.py",
-    "generate_p_norm.py",
-    "generate_partial_concat.py",
-    "generate_partial_sum.py",
-    "generate_place_test_model.py",
-    "generate_roi_align.py",
-    "generate_tile.py",
-    "generate_unsupported_relu.py",
+    "generate_place_test_model.py"
     ]
 
 for gen_script in gen_files:
