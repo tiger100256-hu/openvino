@@ -2,10 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 import sys
 import paddle
-import os
 
 def paddle_bmm(x1, x2):
     paddle.enable_static()
@@ -37,22 +36,8 @@ def paddle_bmm_v3(x1, x2):
             result1 = self.batch_norm(bmm_res)
             return result1
     model = BMM()
-    net = paddle.jit.to_static(model, full_graph=True)
-    net.eval()
     name = "bmm"
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), x1)
-    np.save(os.path.join(model_dir, "input1"), x2)
-    input_tensor0 = paddle.to_tensor(x1)
-    input_tensor1 = paddle.to_tensor(x2)
-    output0 = net(input_tensor0, input_tensor1)
-    np.save(os.path.join(model_dir, "output0"), output0.numpy())
-    input_spec = [paddle.static.InputSpec(shape=x1.shape, dtype=x1.dtype),
-                  paddle.static.InputSpec(shape=x2.shape, dtype=x2.dtype)]
-    paddle.jit.save(net, model_path, input_spec)
+    saveModel_v3(name, model, [x1, x2], sys.argv[1])
 
 if __name__ == "__main__":
     input1 = np.array([[[0., 1., 2., 3., 4.],  # (1, 1, 7, 5) input tensor
@@ -64,15 +49,8 @@ if __name__ == "__main__":
                         [30., 31., 32., 33., 34.,]]]).astype(np.float32)
 
     input2 = np.ones([1, 5, 7]).astype('float32')
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
 
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         paddle_result = paddle_bmm_v3(input1, input2)
     else:
         paddle_result = paddle_bmm(input1, input2)

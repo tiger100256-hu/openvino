@@ -2,9 +2,8 @@
 # pool2d paddle model generator
 #
 import numpy as np
-from save_model import saveModel
+from save_model import saveModel, is_pir_enabled
 import sys
-import os
 
 def generate_proposals_v2(name: str, input_data: dict, attr: dict):
     scores_np = input_data["scores"]
@@ -18,16 +17,8 @@ def generate_proposals_v2(name: str, input_data: dict, attr: dict):
     nms_thresh = attr["nms_thresh"]
     min_size = attr["min_size"]
     pixel_offset = attr["pixel_offset"]
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
-
     import paddle
-    if paddle.__version__ >= '3.0.0' and enable_pir :
+    if is_pir_enabled() :
         from paddle.vision.ops import generate_proposals
     else:
         from ops import generate_proposals

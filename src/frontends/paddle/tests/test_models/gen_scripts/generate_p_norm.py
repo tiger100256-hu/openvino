@@ -16,7 +16,7 @@ if paddle.__version__ >= '2.6.0':
 else:
     from paddle.fluid.layer_helper import LayerHelper
 
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 
 
 
@@ -37,15 +37,7 @@ def p_norm_ref(x, p=None, axis=None, epsilon=1e-12, keepdim=None, name=None):
 
 
 def p_norm(name: str, x, axis, p, keepdim):
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
-
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         class PNormLayer(paddle.nn.Layer):
             def __init__(self, p=2.0, axis=1, keepdim=True):
                 super().__init__()
@@ -55,18 +47,7 @@ def p_norm(name: str, x, axis, p, keepdim):
             def forward(self, x):
                 return paddle.norm(x, p=self.p, axis=self.axis, keepdim=self.keepdim)
         model = PNormLayer(p = p, axis =axis, keepdim = keepdim)
-        net = paddle.jit.to_static(model, full_graph=True)
-        net.eval()
-        model_dir = os.path.join(sys.argv[1], name)
-        model_path = os.path.join(model_dir, name)
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        np.save(os.path.join(model_dir, "input0"), x)
-        input_tensor = paddle.to_tensor(x)
-        output = net(input_tensor)
-        np.save(os.path.join(model_dir, "output0"), output.numpy())
-        input_spec = [paddle.static.InputSpec(shape=x.shape, dtype=x.dtype)]
-        paddle.jit.save(net, model_path, input_spec)
+        output = saveModel_v3(name, model, [x], sys.argv[1])
         return output.numpy()
 
     paddle.enable_static()

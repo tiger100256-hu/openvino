@@ -5,15 +5,8 @@ import paddle
 import numpy as np
 import os
 import sys
-enable_pir = False;
-if os.getenv('FLAGS_enable_pir_api') == '1':
-    enable_pir = True
-elif os.getenv('FLAGS_enable_pir_api') == '0':
-    enable_pir = False
-else:
-    enable_pir = False
-
-if paddle.__version__ >= '3.0.0' and enable_pir:
+from save_model import is_pir_enabled
+if is_pir_enabled():
     sys.exit(0)
 elif paddle.__version__ >= '2.6.0':
     from paddle.base.proto import framework_pb2

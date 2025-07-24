@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 import sys
-import os
 import paddle
 
 def paddle_assign_value(name, test_x):
@@ -39,18 +38,7 @@ def paddle_assign_value_v3(name, test_x):
             result = paddle.cast(paddle.concat([node_x, const_value], 0), dtype=np.float32)
             return result
     model = Assign()
-    net = paddle.jit.to_static(model, full_graph=True)
-    net.eval()
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), test_x)
-    input_tensor0 = paddle.to_tensor(test_x)
-    output0 = net(input_tensor0)
-    np.save(os.path.join(model_dir, "output0"), output0.numpy())
-    input_spec = [paddle.static.InputSpec(shape=test_x.shape, dtype=test_x.dtype)]
-    paddle.jit.save(net, model_path, input_spec)
+    saveModel_v3(name, model, [test_x], sys.argv[1])
 
 def compare():
 
@@ -72,16 +60,9 @@ def compare():
             "input": np.array([False, True, False])
         }
     ]
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
 
     for test in test_cases:
-        if paddle.__version__ >= '3.0.0' and enable_pir :
+        if is_pir_enabled() :
             paddle_assign_value_v3(test['name'], test['input'])
         else:
             paddle_assign_value(test['name'], test['input'])

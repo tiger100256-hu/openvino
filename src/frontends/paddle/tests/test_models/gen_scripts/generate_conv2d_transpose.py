@@ -3,9 +3,8 @@
 
 import numpy as np
 import paddle
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 import sys
-import os
 
 def run_and_save_model(input_x, name, feed, fetch_list, main_prog, start_prog):
     cpu = paddle.static.cpu_places(1)
@@ -45,19 +44,7 @@ def paddle_conv2d_transpose_v3(input_x, name, input_shape, kernel, dilation, pad
         weight_attr=weight_attr,
         bias_attr=None
     )
-    net = paddle.jit.to_static(conv_layer, full_graph=True)
-    net.eval()
-    x = np.random.rand(*input_shape).astype('float32');
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), x)
-    input_tensor = paddle.to_tensor(x)
-    output = net(input_tensor)
-    np.save(os.path.join(model_dir, "output0"), output.numpy())
-    input_spec = [paddle.static.InputSpec(shape=input_shape, dtype='float32')]
-    paddle.jit.save(net, model_path, input_spec)
+    saveModel_v3(name, conv_layer, [input_x], sys.argv[1])
 
 if __name__ == "__main__":
 
@@ -162,16 +149,9 @@ if __name__ == "__main__":
             "use_cudnn": False
         }
     ]
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
 
     for test in test_cases:
-        if paddle.__version__ >= '3.0.0' and enable_pir:
+        if is_pir_enabled():
             paddle_conv2d_transpose_v3(test['input_x'], test['name'], test["input_shape"],
                         test['kernel'], test['dilation'],
                         test['padding'],

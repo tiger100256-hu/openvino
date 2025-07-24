@@ -12,7 +12,7 @@ import sys
 import os
 import paddle
 
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 
 def ov_embedding(ids, vocab_embeddings, vocab_size, embedding_dim, padding_idx, sparse):
     """
@@ -139,27 +139,10 @@ def embedding_v3(name: str, ids, vocab_size, embedding_dim, padding_idx=None, sp
     node_embedding = paddle.nn.Embedding(num_embeddings=vocab_size, embedding_dim=embedding_dim,
                                          padding_idx=padding_idx, sparse=sparse, weight_attr=pretrained_attr, name=name)
     net = paddle.jit.to_static(node_embedding, full_graph=True)
-    net.eval()
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), ids)
-    input_tensor = paddle.to_tensor(ids)
-    output = net(input_tensor)
-    np.save(os.path.join(model_dir, "output0"), output.numpy())
-    input_spec = [paddle.static.InputSpec(shape=ids.shape, dtype=ids.dtype)]
-    paddle.jit.save(net, model_path, input_spec)
+    output = saveModel_v3(name, node_embedding, [ids], sys.argv[1])
     return output
 
 if __name__ == "__main__":
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
     vocab_size = 17
     embedding_dim = 31
 
@@ -168,7 +151,7 @@ if __name__ == "__main__":
     #
     ids = np.random.randint(0, vocab_size, 4).astype("int32")
 
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         embedding_v3("embedding_0", ids, vocab_size, embedding_dim,
                      vocab_embeddings=table, compare=False)
     else:
@@ -177,7 +160,7 @@ if __name__ == "__main__":
 
     #
     ids = np.random.randint(0, vocab_size, 4).astype("int32")
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         embedding_v3("embedding_sparse", ids, vocab_size, embedding_dim,
                      sparse=True, vocab_embeddings=table, compare=False)
     else:
@@ -186,7 +169,7 @@ if __name__ == "__main__":
 
     # # compare fail
     ids = np.random.randint(0, vocab_size, 4).astype("int32")
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         embedding_v3("embedding_none_weight", ids,
                      vocab_size, embedding_dim, compare=False)
     else:
@@ -198,7 +181,7 @@ if __name__ == "__main__":
     ids = np.squeeze(ids)
     padding_idx = np.random.choice(ids, 1)[0]
     # print('padding_idx {}, ids {}'.format(padding_idx, ids))
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         outputs = embedding_v3("embedding_paddings", ids, vocab_size, embedding_dim, padding_idx=int(
             padding_idx), vocab_embeddings=table, compare=False)
     else:
@@ -212,7 +195,7 @@ if __name__ == "__main__":
     ids[pick] = vocab_size - 1
     padding_idx = -1
     # print('padding_idx {}, ids {}'.format(padding_idx, ids))
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         outputs = embedding_v3("embedding_paddings_neg1", ids, vocab_size, embedding_dim,
                         padding_idx=int(padding_idx), vocab_embeddings=table, compare=False)
     else:
@@ -224,7 +207,7 @@ if __name__ == "__main__":
     ids = np.random.randint(low=0, high=vocab_size,
                             size=(2, 4, 5)).astype("int32")
 
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         embedding_v3("embedding_tensorIds", ids, vocab_size,
                      embedding_dim, vocab_embeddings=table, compare=False)
     else:
@@ -238,7 +221,7 @@ if __name__ == "__main__":
     padding_idx = np.random.choice(flatten_idx, 1)[0]
     # print('padding_idx {}'.format(padding_idx))
 
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         outputs = embedding_v3("embedding_tensorIds_paddings", ids, vocab_size, embedding_dim,
                             padding_idx=np.int64(padding_idx), vocab_embeddings=table, compare=False)
     elif paddle.__version__ >= '2.0.0':

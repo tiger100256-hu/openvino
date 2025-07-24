@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-import sys
 import numpy as np
 import paddle
 
@@ -77,6 +76,39 @@ def saveModel(name, exe, feed_vars:list, fetchlist:list, inputs:list, outputs:li
     model_name = os.path.join(model_dir, name)
     paddle.static.io.save_inference_model(model_name, feed_vars, fetchlist, exe)
 
+def saveModel_v3(name, model, inputs:list, target_dir:str, dyn_shapes:list=[]):
+    net = paddle.jit.to_static(model, full_graph=True)
+    net.eval()
+    return exportModel(name, net, inputs, target_dir, dyn_shapes)
+    #model_dir = os.path.join(target_dir, name)
+    #model_path = os.path.join(model_dir, name)
+    #if not os.path.exists(model_dir):
+    #    os.makedirs(model_dir)
+    #input_tensor_list = []
+    #input_specs = []
+
+    #if len(dyn_shapes)>0:
+    #    assert(len(dyn_shapes) == len(inputs))
+
+    #for idx, data in enumerate(inputs):
+    #    input_name = 'input{}'.format(idx)
+    #    input_shape = dyn_shapes[idx] if len(dyn_shapes)>0 and dyn_shapes[idx] is not None else data.shape
+    #    input_specs.append(
+    #        paddle.static.InputSpec(shape=input_shape, dtype=data.dtype, name=input_name)
+    #    )
+    #    # dump input
+    #    np.save(os.path.join(model_dir, "input{}".format(idx)), data)
+    #    input_tensor_list.append(paddle.to_tensor(data))
+
+    #paddle.jit.save(net, model_path, input_specs)
+    #output = net(*input_tensor_list)
+    #if isinstance(output, (tuple, list)):
+    #    for idx, out in enumerate(output):
+    #        np.save(os.path.join(model_dir, "output{}".format(idx)), out.numpy())
+    #else:
+    #    np.save(os.path.join(model_dir, "output{}".format(0)), output.numpy())
+
+    #return output
 
 '''
 export dyn model, along with input and output for reference.

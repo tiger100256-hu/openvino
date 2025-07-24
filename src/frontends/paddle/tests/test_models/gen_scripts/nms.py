@@ -3,13 +3,12 @@
 #
 # helper for multiclass/matrix_nms paddle model generator
 #
-import os
 import numpy as np
 import copy  # deepcopy
 import sys
 import paddle
 
-from save_model import saveModel, exportModel, print_alike
+from save_model import saveModel, exportModel, print_alike, saveModel_v3, is_pir_enabled
 
 if paddle.__version__ >= '2.6.0':
     from paddle.base import data_feeder
@@ -21,15 +20,7 @@ else:
 # scores shape (N, C, M) if shared else (M, C)
 def NMS(name: str, bboxes, scores, attrs: dict, rois_num=None, verbose=False):
     import paddle
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
-
-    if paddle.__version__ >= '3.0.0' and enable_pir :
+    if is_pir_enabled():
         from paddle.vision.ops import matrix_nms as matrix_nms
     else:
         from ops import matrix_nms as matrix_nms

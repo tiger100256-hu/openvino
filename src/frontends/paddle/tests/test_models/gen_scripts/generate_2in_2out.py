@@ -3,19 +3,10 @@
 
 import paddle
 import numpy as np
-import os
 import sys
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 
-enable_pir = False;
-if os.getenv('FLAGS_enable_pir_api') == '1':
-    enable_pir = True
-elif os.getenv('FLAGS_enable_pir_api') == '0':
-    enable_pir = False
-else:
-    enable_pir = False
-
-if paddle.__version__ >= '3.0.0' and enable_pir:
+if is_pir_enabled():
     class TwoInputAndTwoOutput(paddle.nn.Layer):
         def __init__(self):
             super(TwoInputAndTwoOutput, self).__init__()
@@ -59,20 +50,7 @@ if paddle.__version__ >= '3.0.0' and enable_pir:
     x = np.random.rand(1, 1, 3, 3).astype('float32');
     y = np.random.rand(1, 2, 3, 3).astype('float32');
     name = "2in_2out"
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), x)
-    np.save(os.path.join(model_dir, "input1"), y)
-    input_tensor0 = paddle.to_tensor(x)
-    input_tensor1 = paddle.to_tensor(y)
-    output0, output1 = net(input_tensor0, input_tensor1)
-    np.save(os.path.join(model_dir, "output0"), output0.numpy())
-    np.save(os.path.join(model_dir, "output1"), output1.numpy())
-    input_spec = [paddle.static.InputSpec(shape=[1,1,3,3], dtype='float32'),
-                  paddle.static.InputSpec(shape=[1,2,3,3], dtype='float32')]
-    paddle.jit.save(net, model_path, input_spec)
+    saveModel_v3(name, model, [x, y], sys.argv[1])
     sys.exit(0)
 
 if paddle.__version__ >= '2.6.0':

@@ -5,9 +5,8 @@
 # pool2d paddle model generator
 #
 import numpy as np
-from save_model import saveModel
+from save_model import saveModel, saveModel_v3, is_pir_enabled
 import sys
-import os
 import paddle
 
 
@@ -55,19 +54,7 @@ def batch_norm1_v3(name : str, x, scale, bias, mean, var, data_layout):
     batch_norm._parameters["_mean"].set_value(mean)
     batch_norm._parameters["_variance"].set_value(var)
 
-    net = paddle.jit.to_static(batch_norm, full_graph=True)
-    net.eval()
-    x = np.random.rand(*x.shape).astype('float32');
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), x)
-    input_tensor = paddle.to_tensor(x)
-    output = net(input_tensor)
-    np.save(os.path.join(model_dir, "output0"), output.numpy())
-    input_spec = [paddle.static.InputSpec(shape=x.shape, dtype='float32')]
-    paddle.jit.save(net, model_path, input_spec)
+    output = saveModel_v3(name, batch_norm, [x], sys.argv[1])
     return output.numpy()
 
 def batch_norm2(name : str, x, scale, bias, mean, var, data_layout):
@@ -116,37 +103,17 @@ def batch_norm2_v3(name : str, x, scale, bias, mean, var, data_layout):
     batch_norm._parameters["_mean"].set_value(mean)
     batch_norm._parameters["_variance"].set_value(var)
 
-    net = paddle.jit.to_static(batch_norm, full_graph=True)
-    net.eval()
-    x = np.random.rand(*x.shape).astype('float32');
-    model_dir = os.path.join(sys.argv[1], name)
-    model_path = os.path.join(model_dir, name)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
-    np.save(os.path.join(model_dir, "input0"), x)
-    input_tensor = paddle.to_tensor(x)
-    output = net(input_tensor)
-    np.save(os.path.join(model_dir, "output0"), output.numpy())
-    input_spec = [paddle.static.InputSpec(shape=x.shape, dtype='float32')]
-    paddle.jit.save(net, model_path, input_spec)
+    output = saveModel_v3(name, batch_norm, [x], sys.argv[1])
     return output.numpy()
 
 def main():
-    enable_pir = False;
-    if os.getenv('FLAGS_enable_pir_api') == '1':
-        enable_pir = True
-    elif os.getenv('FLAGS_enable_pir_api') == '0':
-        enable_pir = False
-    else:
-        enable_pir = False
-
     data = np.array([[[[-1, 0, 1]], [[2, 3, 4]]]]).astype(np.float32)
     # data layout is NCHW
     scale = np.array([1.0, 1.5]).astype(np.float32)
     bias = np.array([0, 1]).astype(np.float32)
     mean = np.array([0, 3]).astype(np.float32)
     var = np.array([1, 1.5]).astype(np.float32)
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         batch_norm1_v3("batch_norm_nchw", data, scale, bias, mean, var, "NCHW")
     else:
         batch_norm1("batch_norm_nchw", data, scale, bias, mean, var, "NCHW")
@@ -156,7 +123,7 @@ def main():
     bias = np.array([0, 1, 2]).astype(np.float32)
     mean = np.array([0.5, 1.5, 1.5]).astype(np.float32)
     var = np.array([1, 1.5, 2]).astype(np.float32)
-    if paddle.__version__ >= '3.0.0' and enable_pir:
+    if is_pir_enabled():
         batch_norm2_v3("batch_norm_nhwc", data, scale, bias, mean, var, "NHWC")
     else:
         batch_norm2("batch_norm_nhwc", data, scale, bias, mean, var, "NHWC")
