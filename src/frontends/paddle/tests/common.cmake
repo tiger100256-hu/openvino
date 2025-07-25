@@ -81,7 +81,7 @@ target_compile_definitions(${TARGET_NAME} PRIVATE -D TEST_PADDLE_VERSION=\"${pad
 # If 'paddlepaddle' is not found, code will still be compiled, but models will not be generated and tests will fail
 # This is done this way for 'code style' and check cases - cmake shall pass, but CI machine doesn't need to have
 # 'paddlepaddle' installed to check code style
-set(GEN TRUE)
+set(GEN FALSE)
 if(PADDLEDET_RESULT AND GEN)
     set(TEST_PADDLE_MODELS ${TEST_MODEL_ZOO_OUTPUT_DIR}/paddle_test_models/${PDVTAG}/)
 

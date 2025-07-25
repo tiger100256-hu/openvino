@@ -76,7 +76,7 @@ static NamedOutputs interpolate(const NodeContext& node,
     auto out_w = node.get_attribute<int>("out_w");
     auto out_h = node.get_attribute<int>("out_h");
     auto out_d = node.get_attribute<int>("out_d");
-    auto scale = node.get_attribute<std::vector<float>>("scale");
+    auto scale = node.get_attribute<std::vector<float>>("scale", {});
     Output<Node> scales;
     Output<Node> target_spatial_shape;
     bool out_flag = out_w <= 0;

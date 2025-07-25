@@ -16,7 +16,18 @@ NamedOutputs p_norm(const NodeContext& node) {
     const auto keepdim = node.get_attribute<bool>("keepdim", false);
 
     const auto absNode = std::make_shared<default_opset::Abs>(data);
-    const auto axisNode = default_opset::Constant::create(ov::element::i32, {1}, {axis});
+    auto axisNode = default_opset::Constant::create(ov::element::i32, {1}, {axis});
+    if (node.is_json_format()) {
+        const auto asvector = node.get_attribute<bool>("asvector", false);
+        if (asvector) {
+            const auto input_shape = data.get_partial_shape();
+            std::vector<int32_t> all_axis;
+            for (int i = 0; i < input_shape.size(); i++) {
+                all_axis.push_back(i);
+            }
+            axisNode = default_opset::Constant::create(ov::element::i32, {input_shape.size()}, all_axis);
+        }
+    }
 
     std::shared_ptr<Node> p_norm_node;
     const auto input_shape = data.get_partial_shape();

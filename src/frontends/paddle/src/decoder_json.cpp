@@ -25,6 +25,7 @@ ov::Any DecoderJson::get_attribute(const std::string& name) const {
     // some attribute name is already changed in 3.0, so use new name to get attributes;
     static const std::map<std::string, std::map<std::string, std::string>> attr_name_map = {
         {"batch_norm_", {{"data_layout", "data_format"}}},
+        {"group_norm", {{"data_layout", "data_format"}}},
         {"cast", {{"out_dtype", "dtype"}}},
         {"pool3d", {{"ksize", "kernel_size"}}},
         {"dropout", {{"dropout_implementation", "mode"}}},

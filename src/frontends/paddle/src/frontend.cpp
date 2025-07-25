@@ -527,7 +527,7 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                     size_t output_idx = 0;
                     for (const auto& port : op.outputPorts) {
                         if (!port.used)  {
-                            if (op.type == "unique") name_idx++;
+                            if (op.type == "unique" || op.type == "matrix_nms" || op.type == "multiclass_nms3") name_idx++;
                             continue;
                         }
                         // cal

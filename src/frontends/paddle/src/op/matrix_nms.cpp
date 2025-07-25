@@ -42,6 +42,9 @@ NamedOutputs matrix_nms(const NodeContext& node) {
     } else {
         return_rois_num = false;
     }
+    // if (node.is_json_format()) {
+    //     return_rois_num = true;
+    // }
 
     auto type_index = node.get_out_port_type("Index");
     PADDLE_OP_CHECK(node,
