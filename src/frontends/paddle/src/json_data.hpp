@@ -2,6 +2,8 @@
 #include "openvino/core/any.hpp"
 #include "openvino/core/type/element_type.hpp"
 #include <nlohmann/json.hpp>
+#include <limits>
+#include <type_traits>
 namespace ov {
 namespace frontend {
 namespace paddle {
@@ -101,6 +103,20 @@ void decodeConst(const nlohmann::json& json, OP& op);
 void decodeOutPorts(const nlohmann::json& json, OP& op);
 void decodePort(const nlohmann::json& json, Port& port);
 void decodePortDesc(const nlohmann::json& json, PortDesc& desc);
+template<typename T>
+T decode_simple_float_attr_value(const nlohmann::json& json) {
+    if (json.contains("VD")) {
+        if (json["VD"] == "-INF") {
+             return -std::numeric_limits<T>::infinity();
+        } else if (json["VD"] == "INF") {
+             return std::numeric_limits<T>::infinity();
+        } else {
+            throw std::runtime_error("unkown VD value");
+            return std::numeric_limits<T>::infinity();
+        }
+    }
+    return json.at("D").template get<T>();
+};
 template<typename T>
 T decode_simple_attr_value(const nlohmann::json& json) {
     return json.at("D").template get<T>();

@@ -185,9 +185,9 @@ ov::Any decode_attr(const nlohmann::json& attr) {
     } else if (attr_type_name  == "a_str") {
         return ov::Any(decode_simple_attr_value<std::string>(attr_type));
     } else if (attr_type_name  == "a_f32") {
-        return ov::Any(decode_simple_attr_value<float>(attr_type));
+        return ov::Any(decode_simple_float_attr_value<float>(attr_type));
     } else if (attr_type_name  == "a_f64") {
-        return ov::Any(decode_simple_attr_value<double>(attr_type));
+        return ov::Any(decode_simple_float_attr_value<double>(attr_type));
     } else if (attr_type_name  == "a_dtype") {
         std::string dtype_str = decode_simple_attr_value<std::string>(attr_type);
         return ov::Any(convert_to_ov_type_from_str(dtype_str));
