@@ -11,15 +11,17 @@ using namespace ov;
 
 op::internal::While::While(const OutputVector& inputs,
                            int32_t sub_block,
-                           const std::vector<std::pair<ov::element::Type, ov::PartialShape>>& output_infos)
+                           const std::vector<std::pair<ov::element::Type, ov::PartialShape>>& output_infos,
+                           bool is_json_format)
     : Op(inputs),
       m_sub_block(sub_block),
-      m_output_infos(output_infos) {
+      m_output_infos(output_infos),
+      m_is_json_format(is_json_format) {
     constructor_validate_and_infer_types();
 }
 
 std::shared_ptr<Node> op::internal::While::clone_with_new_inputs(const OutputVector& new_args) const {
-    return make_shared<While>(new_args, m_sub_block, m_output_infos);
+    return make_shared<While>(new_args, m_sub_block, m_output_infos, m_is_json_format);
 }
 
 bool op::internal::While::visit_attributes(AttributeVisitor& visitor) {

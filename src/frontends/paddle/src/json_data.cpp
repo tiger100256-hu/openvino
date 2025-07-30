@@ -15,7 +15,12 @@ void decodeRegion(const nlohmann::json& json, std::shared_ptr<Region> region){
 }
 void decodeBlock(const nlohmann::json& json, Block& block) {
     block.name = json.at("#").template get<std::string>();
-    // block.args = json.at("args").dump(); // save it, maybe need in future
+    auto argsJson = json.at("args");
+    for (auto& argJson : argsJson) {
+        Port newPort;
+        decodeArgs(argJson, newPort);
+        block.args.push_back(std::move(newPort));
+    }
     auto& opsJson = json.at("ops");
     for (auto& opJson : opsJson) {
         OP newOp(opJson);
@@ -38,7 +43,7 @@ void decodeOP(const nlohmann::json& json, OP& op) {
                 op.type = "reduce_sum";
             } else if (op.type == "split" && dialet == "1") {
                 op.type = "split_with_num";
-            } else if (op.type == "if") {
+            } else if (op.type == "if" || op.type == "while") {
                 //decode sub graph
                 auto& regionsJson = json.at("regions");
                 for (auto& regionJson : regionsJson) {
@@ -80,6 +85,13 @@ void decodeOutPorts(const nlohmann::json& json, OP& op) {
         decodePort(outPortsJson, newPort);
         op.outputPorts.push_back(std::move(newPort));
     }
+    // if (op.type = "while") {
+    //    // add a fake bool output
+    //    Port fakePort;
+    //    auto last_port = op.outputPorts.back()
+    //    fakePort.id = std::numeric_limits<std::int64_t>::max() - last_port.id
+    //    op.outputPorts.push_back(std::move(fakePort));
+    // }
 }
 
 void decodePortDesc(const nlohmann::json& json, PortDesc& desc) {
@@ -117,6 +129,29 @@ void decodePort(const nlohmann::json& json, Port& port) {
         port.descs.push_back(std::move(newPortDesc));
     }
 }
+void decodeArgs(const nlohmann::json& json, Port& port) {
+    port.id = json.at("#").template get<uint64_t>();
+    auto& typeTypeJson = json.at("TT");
+    auto port_type = typeTypeJson.at("#").template get<std::string>();
+    if (port_type == "NULL") {
+        return;
+    }
+    auto pos = port_type.find(".");
+    port.type = port_type.substr(pos + 1);
+    if (port.type == "t_vec") {
+        auto& data = typeTypeJson.at("D");
+        for (auto& portDescJson : data) {
+            PortDesc newPortDesc;
+            decodePortDesc(portDescJson, newPortDesc);
+            port.descs.push_back(std::move(newPortDesc));
+        }
+    } else {
+        PortDesc newPortDesc;
+        decodePortDesc(typeTypeJson, newPortDesc);
+        port.descs.push_back(std::move(newPortDesc));
+    }
+}
+
 TypeType convertFromStringToType(std::string type) {
   const static std::map<std::string, TypeType> map = {
       {"t_undefined", UNDEFINED},
@@ -254,7 +289,7 @@ const std::string& Port::get_layout() const {
    return descs[0].layout;
 }
 
-const std::vector<uint64_t>& OP::get_sub_inputs_ids(const size_t block_idx) const {
+const std::vector<int64_t>& OP::get_sub_inputs_ids(const size_t block_idx) const {
     for(auto& region : sub_region_vecs) {
         for(auto& block : region->blocks) {
            if (block_idx == block.id) {
@@ -264,7 +299,7 @@ const std::vector<uint64_t>& OP::get_sub_inputs_ids(const size_t block_idx) cons
     }
     OPENVINO_ASSERT(false, "Cannot find block_idx: ",  block_idx);
 }
-const std::vector<uint64_t>& OP::get_sub_outputs_ids(const size_t block_idx) const {
+const std::vector<int64_t>& OP::get_sub_outputs_ids(const size_t block_idx) const {
     for(auto& region : sub_region_vecs) {
         for(auto& block : region->blocks) {
            if (block_idx == block.id) {

@@ -41,44 +41,62 @@ ov::frontend::paddle::pass::TransformWhile::TransformWhile(std::vector<std::shar
         const auto block_idx = while_node->get_subblock_index();
         const auto sub_model = functions[block_idx];
         loop->set_function(sub_model);
-
         const auto& parameters = sub_model->get_parameters();
         const auto submodel_outputs = sub_model->outputs();
-        const auto is_exist = [&submodel_outputs](const std::string& name) {
-            for (const auto& out : submodel_outputs) {
-                if (out.get_any_name() == name)
-                    return true;
+        if (while_node->is_json_format()) {
+            size_t ouput_index = 0;
+            for (size_t i = 0; i < parameters.size(); i++) {
+                const auto names = inputs[i].get_names();
+                if ((!names.empty()) && std::stoi(*names.begin()) < 0) {
+                    loop->set_merged_input(parameters[i], inputs[i], submodel_outputs[ouput_index++]);
+                } else {
+                    loop->set_invariant_input(parameters[i], inputs[i]);
+                }
             }
-            return false;
-        };
-        for (size_t i = 0; i < parameters.size(); i++) {
-            const auto names = inputs[i].get_names();
-            std::string param_name;
-            if (!names.empty()) {
-                param_name = *names.begin();
+            loop->set_special_body_ports(Loop::SpecialBodyPorts{-1, 0});
+            // replace output
+            const auto& results = sub_model->get_results();
+            for (size_t i = 0; i < results.size(); i++) {
+                auto out = loop->get_iter_value(results[i], -1);
+                while_node->output(i).replace(out);
             }
-            if (!param_name.empty() && is_exist(param_name)) {
-                auto out_node = sub_model->output(param_name);
-                loop->set_merged_input(parameters[i], inputs[i], out_node);
-            } else {
-                loop->set_invariant_input(parameters[i], inputs[i]);
+        } else {
+            const auto is_exist = [&submodel_outputs](const std::string& name) {
+                for (const auto& out : submodel_outputs) {
+                    if (out.get_any_name() == name)
+                        return true;
+                }
+                return false;
+            };
+            for (size_t i = 0; i < parameters.size(); i++) {
+                const auto names = inputs[i].get_names();
+                std::string param_name;
+                if (!names.empty()) {
+                    param_name = *names.begin();
+                }
+                if (!param_name.empty() && is_exist(param_name)) {
+                    auto out_node = sub_model->output(param_name);
+                    loop->set_merged_input(parameters[i], inputs[i], out_node);
+                } else {
+                    loop->set_invariant_input(parameters[i], inputs[i]);
+                }
             }
-        }
-        int64_t idx = -1;
-        for (size_t i = 0; i < sub_model->get_results().size(); i++) {
-            if (sub_model->output(i).get_tensor().get_any_name() == cond_name)
-                idx = static_cast<int64_t>(i);
-        }
-        FRONT_END_GENERAL_CHECK(idx != -1, "could not find condition node in outputs.");
+            int64_t idx = -1;
+            for (size_t i = 0; i < sub_model->get_results().size(); i++) {
+                if (sub_model->output(i).get_tensor().get_any_name() == cond_name)
+                    idx = static_cast<int64_t>(i);
+            }
+            FRONT_END_GENERAL_CHECK(idx != -1, "could not find condition node in outputs.");
 
-        loop->set_special_body_ports(Loop::SpecialBodyPorts{-1, idx});
-
-        // replace output
-        const auto& results = sub_model->get_results();
-        for (size_t i = 0; i < results.size(); i++) {
-            auto out = loop->get_iter_value(results[i], -1);
-            while_node->output(i).replace(out);
+            loop->set_special_body_ports(Loop::SpecialBodyPorts{-1, idx});
+            // replace output
+            const auto& results = sub_model->get_results();
+            for (size_t i = 0; i < results.size(); i++) {
+                auto out = loop->get_iter_value(results[i], -1);
+                while_node->output(i).replace(out);
+            }
         }
+
 
         loop->add_node_control_dependents(while_node);
         loop->add_node_control_dependencies(while_node);

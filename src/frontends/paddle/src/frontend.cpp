@@ -97,6 +97,7 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
         NamedInputs named_inputs;
         size_t input_name_index = 0;
         const auto& op = json_op_place->get_op();
+
         for (const auto& inputId : op.inputIds) {
             if (op.unusedInputIds.find(inputId) != op.unusedInputIds.end()) {
                 input_name_index++;
@@ -156,6 +157,33 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
             auto sub_block_indexs_node = ov::opset7::Constant::create(ov::element::i32, {2}, sub_block_indexs);
             named_inputs["sub_block_indexs"].push_back(sub_block_indexs_node);
         }
+        if (op.type == "while") {
+            FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 1, "while op has one block");
+            auto sub_block_id = op.sub_block_idxs[0];
+            // set to name to match
+            auto& sub_input_ids = op.get_sub_inputs_ids(sub_block_id);
+            // skip Condition
+            size_t index = 0;
+            for (auto& item : named_inputs["X"]) {
+                while (index < sub_input_ids.size() ) {
+                    if (sub_input_ids[index] < 0 ) {
+                        item.get_tensor().add_names({std::to_string(sub_input_ids[index])});
+                        index++;
+                        break;
+                    }
+                    index++;
+                }
+            }
+            for (auto& item : sub_input_ids) {
+                if (item > 0) {
+                    auto it = nodes.find(std::to_string(item));
+                    named_inputs["X"].push_back(it->second);
+                }
+            }
+            auto sub_block_index_node = ov::opset7::Constant::create(ov::element::i32, {1}, {sub_block_id});
+            named_inputs["sub_block_index"].push_back(sub_block_index_node);
+        }
+
         NamedOutputs outputs;
         // In case the conversion function throws exception
         try {
@@ -360,7 +388,7 @@ void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, 
         }
     } else if (auto op_place = std::dynamic_pointer_cast<JsonOpPlace>(base_op_place)) {
         auto op = op_place->get_op();
-        if (op.type == "if") {
+        if (op.type == "if" || op.type == "while") {
             // get inputs and output block
             for (auto& block_index : op.sub_block_idxs) {
                 auto& input_ids = op.get_sub_inputs_ids(block_index);
@@ -557,9 +585,26 @@ std::map<int32_t, std::shared_ptr<ov::Model>> FrontEnd::convert_each_node_recurs
                                split_index++;
                            }
                            name_idx++;
+                        } else if (op.type == "while") {
+                            nodes_dict[port_name] = ng_outputs[output_idx];
+                            output_idx++;
                         } else {
                             FRONT_END_OP_CONVERSION_CHECK(false,
                                 "port name:", port.id, "  can't much output name:", output_name[name_idx]);
+                        }
+                    }
+                }
+                // match args to while input
+                if (op.type == "while") {
+                    auto sub_block_id = op.sub_block_idxs[0];
+                    auto& sub_input_ids = op.get_sub_inputs_ids(sub_block_id);
+                    auto& while_inputs = op.inputIds;
+                    // skip Condition
+                    size_t index = 1;
+                    for (auto& input_id : sub_input_ids) {
+                        if (input_id < 0 ) {
+                            nodes_dict[std::to_string(input_id)] = nodes_dict[std::to_string(while_inputs[index])];
+                            index++;
                         }
                     }
                 }
@@ -764,6 +809,7 @@ std::shared_ptr<ov::Model> FrontEnd::convert(const InputModel::Ptr& model) const
     fuse_fakequantize_ops(f);
     try_remove_internal_ops(f);
     normalize(f[0]);
+    ov::save_model(f[0], "test.xml", false);
     return f[0];
 }
 

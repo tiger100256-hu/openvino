@@ -17,7 +17,8 @@ public:
 
     While(const OutputVector& inputs,
           int32_t sub_block,
-          const std::vector<std::pair<ov::element::Type, ov::PartialShape>>& output_infos);
+          const std::vector<std::pair<ov::element::Type, ov::PartialShape>>& output_infos,
+          bool is_json_format);
 
     void validate_and_infer_types() override;
 
@@ -28,11 +29,15 @@ public:
     const int32_t get_subblock_index() const {
         return m_sub_block;
     }
+    bool is_json_format() {
+        return m_is_json_format;
+    }
 
 private:
     int32_t m_sub_block = 0;
 
     std::vector<std::pair<ov::element::Type, ov::PartialShape>> m_output_infos;
+    bool m_is_json_format = false;
 };
 
 }  // namespace internal

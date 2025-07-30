@@ -45,7 +45,7 @@ struct PortDesc {
 };
 
 struct Port {
-   uint64_t id = 0;
+   int64_t id = 0;
    std::string type;
    std::vector<PortDesc> descs;
    TypeType get_precision() const;
@@ -58,12 +58,12 @@ struct Region;
 class OP {
 public:
    OP(const nlohmann::json& json_data_):json_data(json_data_){}
-   const std::vector<uint64_t>& get_sub_inputs_ids(const size_t block_idx) const;
-   const std::vector<uint64_t>& get_sub_outputs_ids(const size_t block_idx) const;
+   const std::vector<int64_t>& get_sub_inputs_ids(const size_t block_idx) const;
+   const std::vector<int64_t>& get_sub_outputs_ids(const size_t block_idx) const;
    std::string name;
    std::string type;
-   std::vector<uint64_t> inputIds;
-   std::set<uint64_t> unusedInputIds;
+   std::vector<int64_t> inputIds;
+   std::set<int64_t> unusedInputIds;
    std::vector<Port> outputPorts;
    bool is_distributed = false;
    bool is_parameter = false;
@@ -79,10 +79,10 @@ public:
 struct Block {
     std::string name;
     uint64_t id;
-    std::vector<std::string> args;
+    std::vector<Port> args;
     std::vector<OP> ops;
-    std::vector<uint64_t> input_ids;
-    std::vector<uint64_t> output_ids;
+    std::vector<int64_t> input_ids;
+    std::vector<int64_t> output_ids;
 };
 struct Region{
     std::string name;
@@ -103,6 +103,7 @@ void decodeConst(const nlohmann::json& json, OP& op);
 void decodeOutPorts(const nlohmann::json& json, OP& op);
 void decodePort(const nlohmann::json& json, Port& port);
 void decodePortDesc(const nlohmann::json& json, PortDesc& desc);
+void decodeArgs(const nlohmann::json& json, Port& port);
 template<typename T>
 T decode_simple_float_attr_value(const nlohmann::json& json) {
     if (json.contains("VD")) {

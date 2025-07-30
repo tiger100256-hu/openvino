@@ -108,6 +108,13 @@ void JsonInputModelImpl::load_places() {
        const auto& blocks = graph.regions[region_idx]->blocks;
        for (size_t block_idx = 0; block_idx < blocks.size(); block_idx++) {
            const auto& block = blocks[block_idx];
+           for (const auto& arg : block.args) {
+               json::Port* outputPtr = (json::Port*)(&arg);
+               outputPtr->used = true;
+               auto out_port = std::make_shared<OutPortPlace>(m_input_model);
+               auto port_name = std::to_string(arg.id);
+               m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, arg);
+           }
            for (const auto& op : block.ops) {
                auto op_place = std::make_shared<JsonOpPlace>(m_input_model, op);
                op_place->set_decoder(std::make_shared<DecoderJson>(op_place));

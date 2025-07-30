@@ -178,6 +178,10 @@ std::vector<std::pair<ov::element::Type, ov::PartialShape>> DecoderJson::get_out
         output_types.push_back({json::convert_to_ov_type(outputport.get_precision()),
                 ov::PartialShape(outputport.get_shapes())});
     }
+    // add a fake bool output for while
+    if (op.type == "while") {
+        output_types.push_back({ov::element::boolean, ov::PartialShape({1})});
+    }
     if (index > output_types.size() -1 ) {
        FRONT_END_GENERAL_CHECK(false, "can't find ouput name ", port_name);
        return {};
