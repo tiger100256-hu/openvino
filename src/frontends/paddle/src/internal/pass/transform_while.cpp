@@ -44,16 +44,17 @@ ov::frontend::paddle::pass::TransformWhile::TransformWhile(std::vector<std::shar
         const auto& parameters = sub_model->get_parameters();
         const auto submodel_outputs = sub_model->outputs();
         if (while_node->is_json_format()) {
+            size_t param_size = parameters.size();
             size_t ouput_index = 0;
             for (size_t i = 0; i < parameters.size(); i++) {
                 const auto names = inputs[i].get_names();
                 if ((!names.empty()) && std::stoi(*names.begin()) < 0) {
-                    loop->set_merged_input(parameters[i], inputs[i], submodel_outputs[ouput_index++]);
+                    loop->set_merged_input(parameters[param_size - 1 - i], inputs[i], submodel_outputs[ouput_index++]);
                 } else {
-                    loop->set_invariant_input(parameters[i], inputs[i]);
+                    loop->set_invariant_input(parameters[param_size - 1 - i], inputs[i]);
                 }
             }
-            loop->set_special_body_ports(Loop::SpecialBodyPorts{-1, 0});
+            loop->set_special_body_ports(Loop::SpecialBodyPorts{-1, submodel_outputs.size() - 1});
             // replace output
             const auto& results = sub_model->get_results();
             for (size_t i = 0; i < results.size(); i++) {
