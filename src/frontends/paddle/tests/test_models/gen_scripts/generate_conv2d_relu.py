@@ -22,6 +22,7 @@ if is_pir_enabled():
     saveModel_v3("conv2d_relu", relu, [x], sys.argv[1])
     sys.exit(0)
 
+
 if paddle.__version__ >= '2.6.0':
     import paddle.base as fluid
 else:

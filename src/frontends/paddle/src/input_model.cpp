@@ -13,6 +13,7 @@
 #include "decoder_proto.hpp"
 #include "framework.pb.h"
 #include "input_model.hpp"
+#include "openvino/core/log_util.hpp"
 #include "openvino/frontend/paddle/node_context.hpp"
 #include "openvino/opsets/opset7.hpp"
 #include "openvino/util/common_util.hpp"
