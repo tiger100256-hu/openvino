@@ -4,4 +4,4 @@
 
 add_subdirectory(standalone_build)
 add_subdirectory(pdmodel_test)
-add_subdirectory(pd3model_test)
+add_subdirectory(jsonmodel_test)
