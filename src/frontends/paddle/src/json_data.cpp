@@ -104,8 +104,10 @@ void decodePortDesc(const nlohmann::json& json, PortDesc& desc) {
     desc.precision = convertFromStringToType(precisionString);
     desc.shapes = data.at(1).template get<std::vector<int64_t>>();
     desc.layout = data.at(2).template get<std::string>();
-    //desc.lod = data.at(3).template get<std::vector<std::vector<size_t>>>(); // save it, maybe need in future
-    desc.offset = data.at(4).template get<size_t>();// save it, maybe need in future
+    if (data.size() > 3) {
+        //desc.lod = data.at(3).template get<std::vector<std::vector<size_t>>>(); // save it, maybe need in future
+        desc.offset = data.at(4).template get<size_t>();// save it, maybe need in future
+    }
 }
 void decodePort(const nlohmann::json& json, Port& port) {
     port.id = json.at("%").template get<uint64_t>();

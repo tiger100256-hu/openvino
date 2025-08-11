@@ -24,6 +24,7 @@ namespace op {
 NamedOutputs tensor_array_to_tensor(const NodeContext& node) {
     using namespace default_opset;
     const auto x = node.get_input("X");
+    std::cout << x.get_partial_shape() << std::endl;
     auto axis = node.get_attribute<int32_t>("axis", 0);
     PADDLE_OP_CHECK(node, axis == 0, "axis should be 0, got: ", axis);
 

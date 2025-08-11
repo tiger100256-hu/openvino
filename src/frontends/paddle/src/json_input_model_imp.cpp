@@ -306,7 +306,7 @@ void JsonInputModelImpl::create_temp_consts() {
     for (const auto& block_op_places : m_op_places) {
         for (const auto& op_place : block_op_places) {
             const auto& op = std::dynamic_pointer_cast<JsonOpPlace>(op_place)->get_op();
-            if (op.type != "full_int_array" && op.type != "full") {
+            if (op.type != "full_int_array" && op.type != "full" && op.type != "create_array") {
                 continue;
             }
             auto* op_ptr = (json::OP*)&op;
@@ -338,6 +338,18 @@ void JsonInputModelImpl::create_temp_consts() {
                     const_node->set_friendly_name(port_name);
                     m_tensor_values[port_name] = const_node;
                     // std::cout << "full_int_array:" << port_name << std::endl;
+                }
+            } else if (op.type == "create_array") {
+                for (auto& port : op.outputPorts) {
+                    auto shape = ov::Shape(port.get_static_shapes());
+                    shape.insert(shape.begin(), 1);  // unsqueeze
+                    auto type = convert_to_ov_type(port.get_precision());
+                    auto const_node = std::make_shared<ov::op::v0::Constant>(type, shape);
+                    const_node->fill_data(type, 0);
+                    auto port_name = std::to_string(port.id);
+                    const_node->set_friendly_name(port_name);
+                    const_node->output(0).get_tensor().add_names({port_name});
+                    m_tensor_values[port_name] = const_node;
                 }
             }
         }
