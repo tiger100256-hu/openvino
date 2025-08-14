@@ -55,6 +55,7 @@ InputModel::InputModel(const std::vector<std::istream*>& streams, const std::sha
         std::stringstream buffer;
         buffer << streams[0]->rdbuf();
         nlohmann::json data = nlohmann::json::parse(buffer);
+        streams[0]->seekg(0, streams[0]->beg);
         _impl = std::make_shared<json::JsonInputModelImpl>(streams, *this, telemetry);
     } catch (nlohmann::json::parse_error& e) {
         streams[0]->seekg(0, streams[0]->beg);

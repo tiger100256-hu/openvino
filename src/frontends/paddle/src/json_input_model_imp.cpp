@@ -113,7 +113,8 @@ void JsonInputModelImpl::load_places() {
                outputPtr->used = true;
                auto out_port = std::make_shared<OutPortPlace>(m_input_model);
                auto port_name = std::to_string(arg.id);
-               m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, arg);
+               const std::vector<std::string> tensor_names = {port_name};
+               m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, tensor_names, arg);
            }
            for (const auto& op : block.ops) {
                auto op_place = std::make_shared<JsonOpPlace>(m_input_model, op);
@@ -131,7 +132,8 @@ void JsonInputModelImpl::load_places() {
                    outputPtr->used = true;
                    auto out_port = std::make_shared<OutPortPlace>(m_input_model);
                    auto port_name = std::to_string(output.id);
-                   m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, output);
+                   const std::vector<std::string> tensor_names = {port_name};
+                   m_var_places[port_name] = std::make_shared<JsonTensorPlace>(m_input_model, tensor_names, output);
                    if (op.type == "data") {
                        m_inputs.push_back(m_var_places[port_name]);
                    }

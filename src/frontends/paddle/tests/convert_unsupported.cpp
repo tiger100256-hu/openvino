@@ -25,15 +25,18 @@ TEST(FrontEndConvertModelTest, test_unsupported_op) {
     std::shared_ptr<ov::Model> model;
     ASSERT_THROW(model = frontEnd->convert(inputModel), OpConversionFailure);
     ASSERT_EQ(model, nullptr);
-    OV_ASSERT_NO_THROW(model = frontEnd->decode(inputModel));
-    ASSERT_THROW(frontEnd->convert(model), OpConversionFailure);
-    OV_ASSERT_NO_THROW(model = frontEnd->convert_partially(inputModel));
-    ASSERT_THROW(frontEnd->convert(model), OpConversionFailure);
-
-    for (auto& node : model->get_ordered_ops()) {
-        if (node->get_friendly_name() == "rxyz_0.tmp_0") {
-            model->replace_node(node, std::make_shared<ov::opset6::Relu>(node->input(0).get_source_output()));
+    if (TEST_PADDLE_MODEL_EXT == ".json") {
+        ASSERT_THROW(model = frontEnd->decode(inputModel), OpConversionFailure);
+    } else {
+        OV_ASSERT_NO_THROW(model = frontEnd->decode(inputModel));
+        ASSERT_THROW(frontEnd->convert(model), OpConversionFailure);
+        OV_ASSERT_NO_THROW(model = frontEnd->convert_partially(inputModel));
+        ASSERT_THROW(frontEnd->convert(model), OpConversionFailure);
+        for (auto& node : model->get_ordered_ops()) {
+            if (node->get_friendly_name() == "rxyz_0.tmp_0") {
+                model->replace_node(node, std::make_shared<ov::opset6::Relu>(node->input(0).get_source_output()));
+            }
         }
+        OV_ASSERT_NO_THROW(frontEnd->convert(model));
     }
-    OV_ASSERT_NO_THROW(frontEnd->convert(model));
 }

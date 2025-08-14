@@ -738,6 +738,7 @@ bool FrontEnd::supported_impl(const std::vector<ov::Any>& variants) const {
                 std::stringstream buffer;
                 buffer << p_model_stream->rdbuf();
                 nlohmann::json data = nlohmann::json::parse(buffer);
+                p_model_stream->seekg(0, p_model_stream->beg);
                 ret = true;
             } catch (nlohmann::json::parse_error& e) {
                 p_model_stream->seekg(0, p_model_stream->beg);

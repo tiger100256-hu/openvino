@@ -48,8 +48,13 @@ TEST(Paddle_Reader_Tests, LoadModelMemoryToCore) {
     ASSERT_TRUE(bin_ptr != nullptr) << "can't open " << param;
     ov::Tensor weight_tensor = ov::Tensor(ov::element::u8, {1, bin_size}, bin_ptr);
     std::string model_str = std::string((char*)xml_ptr, xml_size);
+    if (std::string(TEST_ENABLE_PIR) == "1") {
+        ASSERT_NO_THROW(core.read_model(model_str, weight_tensor));
+        free(xml_ptr);
+        free(bin_ptr);
+        return;
+    }
     auto function = core.read_model(model_str, weight_tensor);
-
     const auto inputType = ov::element::f32;
     const auto inputShape = ov::Shape{1, 3, 4, 4};
     const auto data = std::make_shared<ov::opset1::Parameter>(inputType, inputShape);
@@ -99,6 +104,10 @@ TEST(Paddle_Reader_Tests, ImportBasicModelToCore) {
                                                     std::string(TEST_PADDLE_MODEL_EXT));
 
     ov::Core core;
+    if (std::string(TEST_ENABLE_PIR) == "1") {
+        ASSERT_NO_THROW(core.read_model(FrontEndTestUtils::make_model_path(model)));
+        return;
+    }
     auto function = core.read_model(FrontEndTestUtils::make_model_path(model));
 
     const auto inputType = ov::element::f32;

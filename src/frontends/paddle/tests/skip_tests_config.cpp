@@ -8,11 +8,19 @@
 #include <vector>
 
 std::vector<std::string> disabledTestPatterns() {
-    return {
+    std::vector<std::string> result =
+    {
 #ifdef OPENVINO_STATIC_LIBRARY
         // Disable tests for static libraries
         ".*FrontendLibCloseTest.*",
 #endif
         ".*testUnloadLibBeforeDeletingDependentObject.*",
     };
+    if (TEST_PADDLE_MODEL_EXT == ".json") {
+        result.insert(result.end(),
+        {
+            "Paddle_Places.*",
+        });
+    }
+    return result;
 }

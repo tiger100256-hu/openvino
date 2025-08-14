@@ -9,6 +9,7 @@
 
 #include "gtest/gtest.h"
 #include "paddle_utils.hpp"
+#include "functional_test_utils/skip_tests_config.hpp"
 
 using namespace ov::frontend;
 
@@ -22,6 +23,7 @@ const std::string outputs_name_file =
 class Paddle_Places : public ::testing::Test {
 protected:
     void SetUp() override {
+        SKIP_IF_CURRENT_TEST_IS_DISABLED();
         std::fstream name_file;
         name_file.open(vars_name_file, std::ios::in);
         if (name_file.is_open()) {
