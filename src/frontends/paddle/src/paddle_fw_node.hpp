@@ -23,7 +23,8 @@ public:
         ov::op::util::FrameworkNodeAttrs attrs;
         attrs.set_type_name(m_decoder->get_op_type());
         set_attrs(attrs);
-
+        auto json_decoder = std::dynamic_pointer_cast<paddle::DecoderBase>(decoder);
+        m_is_json_decoder = (json_decoder != nullptr);
         validate_and_infer_types();
     }
 
@@ -41,6 +42,10 @@ public:
         return m_decoder;
     }
 
+    bool is_json_decoder() const {
+        return m_is_json_decoder;
+    }
+
     std::map<std::string, OutputVector> get_named_inputs() const;
 
     std::map<std::string, OutputVector> return_named_outputs();
@@ -48,6 +53,7 @@ public:
 private:
     const std::shared_ptr<DecoderBase> m_decoder;
     std::vector<std::string> m_inputs_names;
+    bool m_is_json_decoder;
 };
 }  // namespace paddle
 }  // namespace frontend

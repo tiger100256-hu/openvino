@@ -57,6 +57,99 @@ namespace frontend {
 namespace paddle {
 namespace {
 
+NamedInputs create_name_inputs(const std::map<paddle::TensorName, Output<Node>>& nodes,
+                               std::shared_ptr<JsonOpPlace>& json_op_place) {
+    NamedInputs named_inputs;
+    size_t input_name_index = 0;
+    const auto& op = json_op_place->get_op();
+    auto type = op.type;
+    for (const auto& inputId : op.inputIds) {
+        if (op.unusedInputIds.find(inputId) != op.unusedInputIds.end()) {
+            input_name_index++;
+            continue;
+        }
+        auto port_name = std::to_string(inputId);
+        auto node_it = nodes.find(port_name);
+        auto input_name = get_input_name_by_op_type(json_op_place->get_op().type, input_name_index);
+        if (node_it != nodes.end()) {
+            named_inputs[input_name].push_back(node_it->second);
+        } else {
+            // input mabe from combine node
+            size_t combine_index = 0;
+            while (true) {
+                auto combine_input_name = port_name + "_" + std::to_string(combine_index);
+                node_it = nodes.find(combine_input_name);
+                if (node_it != nodes.end()) {
+                    named_inputs[input_name].push_back(node_it->second);
+                } else {
+                    break;
+                }
+                combine_index++;
+            }
+        }
+        input_name_index++;
+        FRONT_END_GENERAL_CHECK(named_inputs[input_name].size() > 0,
+                "Input ",
+                port_name,
+                " for node with type ",
+                type,
+                " wasn't found. It may happen if model was cut incorrectly.");
+    }
+    if (op.type == "if") {
+        // only one input cond, we need to parepare if_inputs and else_inputs and sub block index
+        FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 2, "if op has two blocks");
+        std::vector<int32_t> sub_block_indexs;
+        auto if_block_id = op.sub_block_idxs[0];
+        sub_block_indexs.push_back(if_block_id);
+        auto& if_input_ids = op.get_sub_inputs_ids(if_block_id);
+        for (auto& inputs : if_input_ids) {
+            auto port_name = std::to_string(inputs);
+            auto it = nodes.find(port_name);
+            FRONT_END_OP_CONVERSION_CHECK(it != nodes.end(),
+                    "cant' find the input:", port_name, " for type ", type);
+            named_inputs["if_inputs"].push_back(it->second);
+        }
+        auto else_block_id = op.sub_block_idxs[1];
+        sub_block_indexs.push_back(else_block_id);
+        auto& else_input_ids = op.get_sub_inputs_ids(else_block_id);
+        for (auto& inputs : else_input_ids) {
+            auto port_name = std::to_string(inputs);
+            auto it = nodes.find(port_name);
+            FRONT_END_OP_CONVERSION_CHECK(it != nodes.end(),
+                    "cant' find the input:", port_name, " for type ", type);
+            named_inputs["else_inputs"].push_back(it->second);
+        }
+        auto sub_block_indexs_node = ov::opset7::Constant::create(ov::element::i32, {2}, sub_block_indexs);
+        named_inputs["sub_block_indexs"].push_back(sub_block_indexs_node);
+    }
+    if (op.type == "while") {
+        FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 1, "while op has one block");
+        auto sub_block_id = op.sub_block_idxs[0];
+        // set to name to match
+        auto& sub_input_ids = op.get_sub_inputs_ids(sub_block_id);
+        // skip Condition
+        size_t index = 0;
+        for (auto& item : named_inputs["X"]) {
+            while (index < sub_input_ids.size() ) {
+                if (sub_input_ids[index] < 0 ) {
+                    item.get_tensor().add_names({std::to_string(sub_input_ids[index])});
+                    index++;
+                    break;
+                }
+                index++;
+            }
+        }
+        for (auto& item : sub_input_ids) {
+            if (item > 0) {
+                auto it = nodes.find(std::to_string(item));
+                named_inputs["X"].push_back(it->second);
+            }
+        }
+        auto sub_block_index_node = ov::opset7::Constant::create(ov::element::i32, {1}, {sub_block_id});
+        named_inputs["sub_block_index"].push_back(sub_block_index_node);
+    }
+    return named_inputs;
+};
 
 NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& nodes,
                           const std::shared_ptr<BaseOpPlace>& op_place,
@@ -94,100 +187,11 @@ NamedOutputs make_ng_node(const std::map<paddle::TensorName, Output<Node>>& node
         auto type = json_op_place->get_op().type;
         auto creator_it = CREATORS_MAP.find(type);
         FRONT_END_OP_CONVERSION_CHECK(creator_it != CREATORS_MAP.end(), "No creator found for ", type, " node.");
-        NamedInputs named_inputs;
-        size_t input_name_index = 0;
-        const auto& op = json_op_place->get_op();
-
-        for (const auto& inputId : op.inputIds) {
-            if (op.unusedInputIds.find(inputId) != op.unusedInputIds.end()) {
-                input_name_index++;
-                continue;
-            }
-            auto port_name = std::to_string(inputId);
-            auto node_it = nodes.find(port_name);
-            auto input_name = get_input_name_by_op_type(json_op_place->get_op().type, input_name_index);
-            if (node_it != nodes.end()) {
-                named_inputs[input_name].push_back(node_it->second);
-            } else {
-                // input mabe from combine node
-                size_t combine_index = 0;
-                while (true) {
-                    auto combine_input_name = port_name + "_" + std::to_string(combine_index);
-                    node_it = nodes.find(combine_input_name);
-                    if (node_it != nodes.end()) {
-                       named_inputs[input_name].push_back(node_it->second);
-                    } else {
-                       break;
-                    }
-                    combine_index++;
-                }
-            }
-            input_name_index++;
-            FRONT_END_GENERAL_CHECK(named_inputs[input_name].size() > 0,
-                    "Input ",
-                    port_name,
-                    " for node with type ",
-                    type,
-                    " wasn't found. It may happen if model was cut incorrectly.");
-        }
-        if (op.type == "if") {
-            // only one input cond, we need to parepare if_inputs and else_inputs and sub block index
-            FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 2, "if op has two blocks");
-            std::vector<int32_t> sub_block_indexs;
-            auto if_block_id = op.sub_block_idxs[0];
-            sub_block_indexs.push_back(if_block_id);
-            auto& if_input_ids = op.get_sub_inputs_ids(if_block_id);
-            for (auto& inputs : if_input_ids) {
-                auto port_name = std::to_string(inputs);
-                auto it = nodes.find(port_name);
-                FRONT_END_OP_CONVERSION_CHECK(it != nodes.end(),
-                                              "cant' find the input:", port_name, " for type ", type);
-                 named_inputs["if_inputs"].push_back(it->second);
-            }
-            auto else_block_id = op.sub_block_idxs[1];
-            sub_block_indexs.push_back(else_block_id);
-            auto& else_input_ids = op.get_sub_inputs_ids(else_block_id);
-            for (auto& inputs : else_input_ids) {
-                auto port_name = std::to_string(inputs);
-                auto it = nodes.find(port_name);
-                FRONT_END_OP_CONVERSION_CHECK(it != nodes.end(),
-                                              "cant' find the input:", port_name, " for type ", type);
-                named_inputs["else_inputs"].push_back(it->second);
-            }
-            auto sub_block_indexs_node = ov::opset7::Constant::create(ov::element::i32, {2}, sub_block_indexs);
-            named_inputs["sub_block_indexs"].push_back(sub_block_indexs_node);
-        }
-        if (op.type == "while") {
-            FRONT_END_GENERAL_CHECK(op.sub_block_idxs.size() == 1, "while op has one block");
-            auto sub_block_id = op.sub_block_idxs[0];
-            // set to name to match
-            auto& sub_input_ids = op.get_sub_inputs_ids(sub_block_id);
-            // skip Condition
-            size_t index = 0;
-            for (auto& item : named_inputs["X"]) {
-                while (index < sub_input_ids.size() ) {
-                    if (sub_input_ids[index] < 0 ) {
-                        item.get_tensor().add_names({std::to_string(sub_input_ids[index])});
-                        index++;
-                        break;
-                    }
-                    index++;
-                }
-            }
-            for (auto& item : sub_input_ids) {
-                if (item > 0) {
-                    auto it = nodes.find(std::to_string(item));
-                    named_inputs["X"].push_back(it->second);
-                }
-            }
-            auto sub_block_index_node = ov::opset7::Constant::create(ov::element::i32, {1}, {sub_block_id});
-            named_inputs["sub_block_index"].push_back(sub_block_index_node);
-        }
 
         NamedOutputs outputs;
         // In case the conversion function throws exception
         try {
-            outputs = creator_it->second(paddle::NodeContext(json_op_place->get_decoder(), named_inputs, true));
+            outputs = creator_it->second(paddle::NodeContext(json_op_place->get_decoder(), create_name_inputs(nodes, json_op_place), true));
         } catch (std::exception& ex) {
             FRONT_END_OP_CONVERSION_CHECK(false, "Fail to convert " + json_op_place->get_op().type + " Exception " + ex.what());
         }
@@ -231,25 +235,16 @@ NamedOutputs make_framework_node(const std::map<paddle::TensorName, Output<Node>
         std::vector<std::string> inputs_names;
         NamedOutputs named_outputs;
         auto op = json_op_place->get_op();
-        size_t input_name_index = 0;
-        for (const auto& inputId : op.inputIds) {
-                auto port_name = std::to_string(inputId);
-                auto it = nodes.find(port_name);
-                // general check, because in case of error partial conversion should fail
-                FRONT_END_GENERAL_CHECK(it != nodes.end(),
-                        "Input ",
-                        port_name,
-                        " for node with type ",
-                        op.type,
-                        " wasn't found. It may happen if model was cut incorrectly.");
-                inputs_vector.push_back(it->second);
-                auto input_name = get_input_name_by_op_type(op.type, input_name_index);
-                input_name_index++;
-                inputs_names.push_back(input_name);
-        }
         auto decoder_json = std::dynamic_pointer_cast<DecoderJson>(json_op_place->get_decoder());
         if (!decoder_json)
-            FRONT_END_THROW("Failed to cast to DecoderProto.");
+            FRONT_END_THROW("Failed to cast to DecoderJson.");
+        NamedInputs named_inputs = create_name_inputs(nodes, json_op_place);
+        for (auto& item : named_inputs) {
+            for (auto& input_node : item.second) {
+                inputs_vector.push_back(input_node);
+            }
+            inputs_names.push_back(item.first);
+        }
         auto node = std::make_shared<FrameworkNode>(decoder_json, inputs_vector, inputs_names);
 
         return node->return_named_outputs();
@@ -265,7 +260,8 @@ bool normalize_framework_node(const std::shared_ptr<FrameworkNode>& node,
     auto creator_it = CREATORS_MAP.find(type);
     FRONT_END_OP_CONVERSION_CHECK(creator_it != CREATORS_MAP.end(), "No creator found for ", type, " node.");
 
-    auto new_node_outputs = creator_it->second(paddle::NodeContext(node->get_decoder(), node->get_named_inputs()));
+    auto new_node_outputs = creator_it->second(paddle::NodeContext(node->get_decoder(),
+                                                                   node->get_named_inputs(), node->is_json_decoder()));
     auto new_node = new_node_outputs.begin()->second[0].get_node_shared_ptr();
     new_node->set_friendly_name(node->get_friendly_name());
     auto node_outputs = node->return_named_outputs();
@@ -364,7 +360,7 @@ void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, 
                 auto inp_tensor = std::dynamic_pointer_cast<BaseTensorPlace>(inp_port->get_source_tensor_paddle());
                 inp_tensors.push_back(inp_tensor);
             }
-            auto tmp_node = paddle::NodeContext(op_place->get_decoder(), paddle::NamedInputs());
+            auto tmp_node = paddle::NodeContext(op_place->get_decoder(), paddle::NamedInputs(), true);
             auto block_idx = tmp_node.get_attribute<int32_t>("sub_block");
             subblock_info[block_idx] = std::make_tuple(op_desc.type(), inp_tensors, outp_tensors);
         } else if (op_desc.type() == "while") {
@@ -382,7 +378,7 @@ void try_update_sublock_info(const std::shared_ptr<BaseOpPlace>& base_op_place, 
                 inp_tensors.push_back(inp_tensor);
             }
             FRONT_END_GENERAL_CHECK(inp_tensors.size() > 0, "Port has no tensors connected.");
-            auto tmp_node = paddle::NodeContext(op_place->get_decoder(), paddle::NamedInputs());
+            auto tmp_node = paddle::NodeContext(op_place->get_decoder(), paddle::NamedInputs(), true);
             auto block_idx = tmp_node.get_attribute<int32_t>("sub_block");
             subblock_info[block_idx] = std::make_tuple(op_desc.type(), inp_tensors, outp_tensors);
         }

@@ -250,16 +250,31 @@ inline std::map<std::string, OutputVector> map_for_each_input_impl(
 
 std::map<std::string, OutputVector> DecoderJson::map_for_each_input(
     const std::function<Output<Node>(const std::string&, size_t)>& func) const {
-    // return map_for_each_input_impl(get_place()->get_desc().inputs(), func);
-    FRONT_END_GENERAL_CHECK(false, "haven't implemented.");
-    return {};
+    auto& op = get_place()->get_op();
+    size_t idx = 0;
+    std::map<std::string, OutputVector> res;
+    for (const auto& inputId : op.inputIds) {
+        auto input_name = get_input_name_by_op_type(op.type, idx);
+        std::vector<Output<Node>> v;
+        v.push_back(func(input_name, idx++));
+        res.emplace(std::make_pair(input_name, v));
+    }
+    return res;
 }
 
 std::map<std::string, OutputVector> DecoderJson::map_for_each_output(
     const std::function<Output<Node>(const std::string&, size_t)>& func) const {
-    // return map_for_each_input_impl(get_place()->get_desc().outputs(), func);
-    FRONT_END_GENERAL_CHECK(false, "haven't implemented.");
-    return {};
+    auto& op = get_place()->get_op();
+    size_t idx = 0;
+    std::map<std::string, OutputVector> res;
+    auto outputName = get_output_names();
+    for (const auto& port : op.outputPorts) {
+        std::vector<Output<Node>> v;
+        v.push_back(func(std::to_string(port.id), idx));
+        res.emplace(std::make_pair(outputName[idx], v));
+        idx++;
+    }
+    return res;
 }
 
 }  // namespace paddle
