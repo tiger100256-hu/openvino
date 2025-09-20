@@ -48,7 +48,8 @@ ov::pass::NormalizeSDPAInputs::NormalizeSDPAInputs() {
         auto trans_q = std::make_shared<op::v1::Transpose>(query_unsuqeeze->output(0), const_transpose_order->output(0));
         auto trans_k = std::make_shared<op::v1::Transpose>(key_unsuqeeze->output(0), const_transpose_order->output(0));
         auto trans_v = std::make_shared<op::v1::Transpose>(val_unsuqeeze->output(0), const_transpose_order->output(0));
-        auto new_sdpa = std::make_shared<ov::op::v13::ScaledDotProductAttention>(trans_q, trans_k, trans_v, attn_unsuqeeze, false);
+        auto const_attn_mask = op::v0::Constant::create(query_unsuqeeze->get_output_element_type(0), {}, std::vector<float>{0});
+        auto new_sdpa = std::make_shared<ov::op::v13::ScaledDotProductAttention>(trans_q, trans_k, trans_v, const_attn_mask, false);
         ov::copy_runtime_info(as_node_vector({pattern_to_output.at(query), pattern_to_output.at(key), pattern_to_output.at(value), pattern_to_output.at(sdp0)}), new_sdpa);
         auto output_unsuqeeze = std::make_shared<op::v0::Squeeze>(new_sdpa, const_zero->output(0));
         ov::replace_node(pattern_to_output.at(sdp0).get_node_shared_ptr(), output_unsuqeeze);
