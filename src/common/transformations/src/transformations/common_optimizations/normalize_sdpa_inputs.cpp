@@ -36,7 +36,7 @@ ov::pass::NormalizeSDPAInputs::NormalizeSDPAInputs() {
     auto attn_mask = pattern::any_input(pattern::rank_equals(3));
     auto sdp0 = wrap_type<ov::op::v13::ScaledDotProductAttention>({trans_q, trans_k, trans_v, attn_mask});
     ov::matcher_pass_callback callback = [OV_CAPTURE_CPY_AND_THIS](ov::pass::pattern::Matcher& m) {
-        std::cout << "matched NormalizeSDPAInputs!!!!!!!" << std::endl;
+        // std::cout << "matched NormalizeSDPAInputs!!!!!!!" << std::endl;
         const auto& pattern_to_output = m.get_pattern_value_map();
         // auto query_ouput = pattern_to_output.at(query);
         auto const_zero = op::v0::Constant::create(ov::element::i32, {}, std::vector<int32_t>{0});
