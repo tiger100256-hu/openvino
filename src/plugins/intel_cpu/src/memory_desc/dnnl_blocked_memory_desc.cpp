@@ -701,7 +701,8 @@ void DnnlBlockedMemoryDesc::initOffsetPadding() {
 }
 
 MemoryDescPtr DnnlBlockedMemoryDesc::cloneWithNewPrecision(const ov::element::Type prec) const {
-    auto newDesc = std::make_shared<DnnlBlockedMemoryDesc>(*this);
+    auto newDesc = std::make_shared<DnnlBlockedMemoryDesc>(this->getDnnlDesc().get());
+    //auto newDesc = std::make_shared<DnnlBlockedMemoryDesc>(*this);
     newDesc->setPrecision(prec);
 
     return newDesc;

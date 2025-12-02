@@ -70,6 +70,7 @@ public:
     size_t getPaddedElementsCount() const override;
 
     MemoryDescPtr cloneWithNewPrecision(ov::element::Type prec) const override;
+    explicit DnnlBlockedMemoryDesc(const_dnnl_memory_desc_t cdesc);
 
     using DnnlMemoryDesc::getPrecision;
     using DnnlMemoryDesc::setPrecision;
@@ -89,7 +90,6 @@ private:
     // provided dynamic shape.
     DnnlBlockedMemoryDesc(const dnnl::memory::desc& mdesc, const Shape& shape);
 
-    explicit DnnlBlockedMemoryDesc(const_dnnl_memory_desc_t cdesc);
 
     MemoryDescPtr cloneWithNewDimsImp(const VectorDims& dims) const override;
 
