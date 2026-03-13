@@ -1053,7 +1053,6 @@ struct PagedAttentionReference {
             }
 
             auto window_size = pam.has_score_aggregation ? pam.score_aggregation[i] : 1;
-
             const std::vector<uint8_t>* qq_bias_ptr = nullptr;
             if (pam.qq_bias.size() > 0 && pam.subsequence_descs[i].past_len != 0) {
                 qq_bias_ptr = &pam.qq_bias[qq_bias_offset++];
@@ -1072,7 +1071,6 @@ struct PagedAttentionReference {
                     xattn_block_size = (user_value == 128 || user_value == 256) ? static_cast<size_t>(user_value) : 256;
                 }
             }
-
             auto subsequence_ref_results = run_reference(has_xattention,
                                                          pam.query_data[i],
                                                          key_data,
@@ -1825,6 +1823,18 @@ public:
         if (p.has_qq_bias) {
             pam.qq_bias = p.qq_bias_config.qq_bias;
             pam.qq_bias_begins = p.qq_bias_config.qq_bias_begins;
+
+            if (!p.qq_bias_config.qq_bias_begins.empty()) {
+                pam.qq_bias_begins = p.qq_bias_config.qq_bias_begins;
+            } else {
+                pam.qq_bias_begins.clear();
+                pam.qq_bias_begins.push_back(0);
+                int offset = 0;
+                for (const auto& matrix : pam.qq_bias) {
+                    offset += static_cast<int>(matrix.size());
+                    pam.qq_bias_begins.push_back(offset);
+                }
+            }
         }
 
         if (p.kv_cache_compression)
@@ -1869,7 +1879,6 @@ public:
         auto adaptive_rkv_diversity_block_set_indices_mem = pam.get_adaptive_rkv_diversity_block_set_indices_memory();
         auto adaptive_rkv_diversity_block_set_indices_begins_mem = pam.get_adaptive_rkv_diversity_block_set_indices_begins_memory();
         auto token_type_ids_mem = pam.get_token_type_ids_memory();
-
         auto qq_bias = pam.get_qq_bias_memory();
         auto qq_bias_begins = pam.get_qq_bias_begins_memory();
         auto query_layout = query_mem->get_layout();
@@ -2214,12 +2223,10 @@ struct paged_attention_test_params {
     bool has_adaptive_rkv = false;
     int start_size = 0;                // Common start_size for all sequences
     std::vector<int> evictable_sizes;  // Per-sequence evictable sizes
-
     // XAttention-related params are grouped below.
     bool has_xattention = false;
     std::optional<std::vector<float>> xattention_threshold = std::nullopt;
     std::optional<std::vector<int>> xattention_block_size = std::nullopt;
-     
     ov::element::Type kv_cache_precision = ov::element::dynamic;
 
     // test query-to-query attention bias

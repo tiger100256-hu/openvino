@@ -1978,6 +1978,8 @@ struct AttentionExecutor : public PagedAttentionExecutor {
               PlainTensor& adaptive_rkv_evictable_sizes,
               PlainTensor& adaptive_rkv_diversity_block_set_indices,
               PlainTensor& adaptive_rkv_diversity_block_set_indices_begins,
+              PlainTensor& qq_bias,
+              PlainTensor& qq_bias_begins,
               PlainTensor& output_emb,
               PlainTensor& output_score,
               std::vector<PlainTensor>& sparse_attention_mask,
@@ -2344,7 +2346,8 @@ struct AttentionExecutor : public PagedAttentionExecutor {
         PlainTensor adaptive_rkv_evictable_sizes;
         PlainTensor adaptive_rkv_diversity_block_set_indices;
         PlainTensor adaptive_rkv_diversity_block_set_indices_begins;
-
+        PlainTensor qq_bias;
+        PlainTensor qq_bias_begins;
         PlainTensor output_emb;
         PlainTensor output_score;
         PlainTensor output_arkv_similarity;
@@ -2385,6 +2388,8 @@ struct AttentionExecutor : public PagedAttentionExecutor {
              adaptive_rkv_evictable_sizes,
              adaptive_rkv_diversity_block_set_indices,
              adaptive_rkv_diversity_block_set_indices_begins,
+             qq_bias,
+             qq_bias_begins,
              output_emb,
              output_score,
              sparse_attention_mask,
