@@ -56,6 +56,17 @@ std::vector<T> reorder_ops_by_names(const std::vector<std::string>& names, const
     return resulted_ops;
 };
 
+ov::ParameterVector filter_unused_parameters(const ov::ParameterVector& params) {
+    ov::ParameterVector filtered_params;
+    filtered_params.reserve(params.size());
+    for (const auto& param : params) {
+        if (!param->output(0).get_target_inputs().empty()) {
+            filtered_params.push_back(param);
+        }
+    }
+    return filtered_params;
+}
+
 /// \brief Adjusts names of the tensor by mapping internal names to user specific ones using the model signature
 /// and mark unused tensor names that must be removed
 /// \param[in] ov_output ov::Output<ov::Node> for which names set should be corrected
@@ -785,7 +796,7 @@ void TranslateSession::translate_graph(const ov::frontend::InputModel::Ptr& inpu
     for (auto& loop_cond_op : loop_cond_ops) {
         fuse_loop_cond(loop_cond_op, ov_tensors_map, enter_ops);
     }
-    ov_model = std::make_shared<ov::Model>(ordered_results, sinks, ordered_params, m_model_name);
+    ov_model = std::make_shared<ov::Model>(ordered_results, sinks, filter_unused_parameters(ordered_params), m_model_name);
 }
 
 std::shared_ptr<ov::Model> TranslateSession::get_body_ov_model(const std::string& body_graph_name,
