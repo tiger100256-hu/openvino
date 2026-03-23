@@ -144,6 +144,7 @@
 // CPU specific transformations
 #include "transformations/cpu_opset/common/pass/insert_convert_after_extension.hpp"
 #include "transformations/cpu_opset/common/pass/ngram_fusion.hpp"
+#include "transformations/cpu_opset/common/pass/pa_kv_reorder_fusion.hpp"
 #include "transformations/cpu_opset/common/pass/permute_slice_n_interpolation.hpp"
 #include "transformations/cpu_opset/common/pass/stateful_sdpa_fusion.hpp"
 #include "transformations/cpu_opset/common/pass/swap_convert_transpose.hpp"
@@ -1190,6 +1191,7 @@ void Transformations::PostLpt() {
     // Should be before Snippets pipeline because Ngram pattern contains eltwise nodes that can be tokenized by
     // Snippets.
     auto symbolic_pipeline = CPU_REGISTER_PASS_COMMON(postLPTPassManager, ov::pass::SymbolicOptimizations, false);
+    symbolic_pipeline->get_manager()->register_pass<PaKVReorderFusion>();
     symbolic_pipeline->get_manager()->register_pass<NgramFusion>();
 
     CPU_REGISTER_PASS_COMMON(postLPTPassManager, ov::pass::Validate);
