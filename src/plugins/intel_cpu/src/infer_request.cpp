@@ -5,8 +5,10 @@
 #include "infer_request.h"
 
 #include <cstddef>
+#include <cstdlib>
 #include <exception>
 #include <functional>
+#include <iostream>
 #include <map>
 #include <memory>
 #include <oneapi/dnnl/dnnl_common.hpp>
@@ -500,6 +502,20 @@ void SyncInferRequest::init_tensor(const std::size_t& port_index, const ov::ISyn
                 }
             } else {
                 tensor_shape = shape.to_shape();
+            }
+
+            if (!port.get_element_type().is_static() && std::getenv("OV_DEBUG_DYN_PORT") != nullptr) {
+                std::cerr << "[OV_DEBUG_DYN_PORT] dynamic input element type on port " << port_index << " names=";
+                for (const auto& name : port.get_names()) {
+                    std::cerr << name << ",";
+                }
+                std::cerr << " shape=" << shape << std::endl;
+            }
+
+            // Dynamic-typed inputs cannot be materialized with ov::make_tensor.
+            // Leave them uninitialized until user code binds a concrete tensor via set_tensor.
+            if (!port.get_element_type().is_static()) {
+                return;
             }
 
             tensor = ov::make_tensor(port.get_element_type(), tensor_shape);
