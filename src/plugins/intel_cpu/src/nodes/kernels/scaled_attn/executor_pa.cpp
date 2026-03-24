@@ -53,39 +53,6 @@ namespace ov::Extensions::Cpu::XARCH {
 using namespace ov;
 using namespace ov::intel_cpu;
 
-static inline void apply_qq_bias_mask(float* score,
-                                      size_t start_idx,
-                                      size_t ncausal,
-                                      size_t past_len,
-                                      size_t q_idx,
-                                      const PlainTensor& qq_bias,
-                                      const PlainTensor& qq_bias_begins,
-                                      size_t batch_in_seq) {
-    if (!qq_bias || !qq_bias_begins || qq_bias.size(0) == 0 || qq_bias_begins.size(0) == 0) {
-        return;
-    }
-
-    const auto* begins = qq_bias_begins.ptr<int32_t>();
-    const auto spec_num = static_cast<size_t>(begins[batch_in_seq + 1] - begins[batch_in_seq]);
-    if (spec_num == 0 || q_idx >= spec_num) {
-        return;
-    }
-
-    const auto cumulated_spec_num = static_cast<size_t>(begins[batch_in_seq]);
-    const auto base = cumulated_spec_num * spec_num + q_idx * spec_num;
-    const auto* qq_ptr = qq_bias.ptr<uint8_t>();
-    const auto mask_start = std::max(start_idx, past_len);
-    for (size_t token_idx = mask_start; token_idx < ncausal; ++token_idx) {
-        const auto spec_offset = token_idx - past_len;
-        if (spec_offset >= spec_num) {
-            continue;
-        }
-        if (qq_ptr[base + spec_offset] == 0) {
-            score[token_idx] = -FLT_MAX;
-        }
-    }
-}
-
 // currently depends on brgemm which only support x64 or ARM SVE
 #if defined(OPENVINO_ARCH_X86_64) || (defined(OPENVINO_ARCH_ARM64) && defined(HAVE_SVE))
 
@@ -801,8 +768,6 @@ struct MHAHelper {
                               const PlainTensor& sinks,
                               size_t batch_in_seq = 0,
                               const std::vector<PlainTensor>& sparse_attention_mask = {},
-                              const PlainTensor& qq_bias = {},
-                              const PlainTensor& qq_bias_begins = {},
                               size_t q_token_start = 0) {
         auto q_start = q_blk * _block_size;
         auto q_end = std::min(q_start + _block_size, q_len);
@@ -810,7 +775,6 @@ struct MHAHelper {
         constexpr bool q_is_xf16 = any_of(precision_of<DATA_TYPE>::value, ov::element::bf16, ov::element::f16);
         constexpr bool q_cache_is_same = precision_of<DATA_TYPE>::value == VALUE_PREC;
         auto cur_kv_len_blocks = div_up(cur_kv_len, _block_size);
-        const size_t past_len = cur_kv_len - (q_blk * _block_size + q_cnt);
         [[maybe_unused]] size_t sparse_scale = 1;
         [[maybe_unused]] std::function<std::pair<size_t, size_t>(size_t, size_t)> map_to_mask_idx =
             [](size_t q_blk_rt, size_t k_blk_rt) {
@@ -905,15 +869,6 @@ struct MHAHelper {
                         new_causal = _sliding_window;
                     }
 
-                    apply_qq_bias_mask(score,
-                                       start_idx,
-                                       ncausal,
-                                       past_len,
-                                       m,
-                                       qq_bias,
-                                       qq_bias_begins,
-                                       batch_in_seq);
-
                     // Handle sparse attention mask for sliding window
                     if (!sparse_attention_mask.empty() && sparse_attention_mask[batch_in_seq].ptr_v() != nullptr &&
                         _use_softmax_sparse_mask) {
@@ -949,14 +904,6 @@ struct MHAHelper {
                         alibi_slope = alibi_slopes.ptr<float>()[h];
                         alibi_lookup = _alibi_lookup.ptr<float>() + _alibi_lookup.m_dims[0] - ncausal;
                     }
-                    apply_qq_bias_mask(score,
-                                       0,
-                                       ncausal,
-                                       past_len,
-                                       m,
-                                       qq_bias,
-                                       qq_bias_begins,
-                                       batch_in_seq);
                     if (!sparse_attention_mask.empty() && sparse_attention_mask[batch_in_seq].ptr_v() != nullptr &&
                         _use_softmax_sparse_mask) {
                         xattn_mask = reinterpret_cast<uint8_t*>(
@@ -1214,9 +1161,6 @@ struct MHAHelper {
                             const PlainTensor& alibi_slopes,
                             float* score_output,
                             const PlainTensor& sinks,
-                            size_t batch_in_seq = 0,
-                            const PlainTensor& qq_bias = {},
-                            const PlainTensor& qq_bias_begins = {},
                             size_t q_token_start = 0) {
 #    if defined(OPENVINO_ARCH_X86_64)
         if (any_of(_fastpath_valid_prec, ov::element::bf16, ov::element::f16)) {
@@ -1269,7 +1213,6 @@ struct MHAHelper {
             for (size_t h = hq_beg; h < hq_end; h++) {
                 // apply attention mask & sofmax
                 auto ncausal = get_ncausal(q_token_start + pq, cur_kv_len, cur_kv_len);
-                const size_t past_len = cur_kv_len - q_len;
                 float* score = _weight.ptr<float>(ithr, h - hq_beg, pq);
                 OPENVINO_DEBUG_ASSERT(score != nullptr, "PagedAttention: _weight buffer must be allocated");
                 float* alibi_lookup = nullptr;
@@ -1290,14 +1233,6 @@ struct MHAHelper {
                         start_idx = ncausal - _sliding_window;
                         new_causal = _sliding_window;
                     }
-                    apply_qq_bias_mask(score,
-                                       start_idx,
-                                       ncausal,
-                                       past_len,
-                                       pq,
-                                       qq_bias,
-                                       qq_bias_begins,
-                                       batch_in_seq);
                     attn_softmax_kernel<float>(score + start_idx,
                                                score + start_idx,
                                                _d_scale,
@@ -1315,14 +1250,6 @@ struct MHAHelper {
                         memset(score, 0, sizeof(float) * start_idx);
                     }
                 } else {
-                    apply_qq_bias_mask(score,
-                                       0,
-                                       ncausal,
-                                       past_len,
-                                       pq,
-                                       qq_bias,
-                                       qq_bias_begins,
-                                       batch_in_seq);
                     attn_softmax_kernel<float>(score,
                                                score,
                                                _d_scale,
@@ -1403,9 +1330,7 @@ struct MHAHelper {
                        const PlainTensor& block_indices_begins,
                        const PlainTensor& alibi_slopes,
                        const PlainTensor& score_aggregation_window,
-                       const PlainTensor& sinks,
-                       const PlainTensor& qq_bias,
-                       const PlainTensor& qq_bias_begins) {
+                       const PlainTensor& sinks) {
         auto B = past_lens.size(0);
         auto q_len = query.size(2);
         auto kv_len_in_blocks = div_up(max_context_len, _block_size);
@@ -1499,7 +1424,6 @@ struct MHAHelper {
             auto cur_kv_len = static_cast<size_t>(past_lens.ptr<int32_t>()[b]) + 1;
             auto q_token_start = static_cast<size_t>(subsequence_begins.ptr<int32_t>()[b]);
             auto ncausal = get_ncausal(q_token_start + pq, cur_kv_len, cur_kv_len);
-            const size_t past_len = cur_kv_len - q_len;
             //  apply attention mask & sofmax
             float* score = _weight_bhl.ptr<float>(b, h, pq);
             OPENVINO_DEBUG_ASSERT(score != nullptr, "PagedAttention: _weight_bhl buffer must be allocated");
@@ -1521,14 +1445,6 @@ struct MHAHelper {
                     start_idx = ncausal - _sliding_window;
                     new_causal = _sliding_window;
                 }
-                apply_qq_bias_mask(score,
-                                   start_idx,
-                                   ncausal,
-                                   past_len,
-                                   pq,
-                                   qq_bias,
-                                   qq_bias_begins,
-                                   b);
                 attn_softmax_kernel<float>(score + start_idx,
                                            score + start_idx,
                                            _d_scale,
@@ -1546,14 +1462,6 @@ struct MHAHelper {
                     memset(score, 0, sizeof(float) * start_idx);
                 }
             } else {
-                apply_qq_bias_mask(score,
-                                   0,
-                                   ncausal,
-                                   past_len,
-                                   pq,
-                                   qq_bias,
-                                   qq_bias_begins,
-                                   b);
                 attn_softmax_kernel<float>(score,
                                            score,
                                            _d_scale,
@@ -1675,8 +1583,6 @@ struct MHA {
                          const PlainTensor& alibi_slopes,
                          const PlainTensor& score_aggregation_window,
                          const PlainTensor& sinks,
-                         const PlainTensor& qq_bias,
-                         const PlainTensor& qq_bias_begins,
                          const std::vector<PlainTensor>& sparse_attention_mask) {
         auto Hk = v_cache.m_dims[1];
 
@@ -1840,9 +1746,6 @@ struct MHA {
                     alibi_slopes,
                     score_output,
                     sinks,
-                        batch_in_seq,
-                        qq_bias,
-                        qq_bias_begins,
                     static_cast<size_t>(batch_in_token));
             } else {
                 const auto batch_in_reorder = item.batch_in_reorder;
@@ -1920,8 +1823,6 @@ struct MHA {
                         PlainTensor(),
                         0,
                         {},
-                        qq_bias,
-                        qq_bias_begins,
                         static_cast<size_t>(batch_in_token));
                 }
 #    else
@@ -1947,8 +1848,6 @@ struct MHA {
                     sinks,
                     batch_in_seq,
                     sparse_attention_mask,
-                    qq_bias,
-                    qq_bias_begins,
                     static_cast<size_t>(batch_in_token));
 #    endif
             }
@@ -1988,8 +1887,6 @@ struct MHA {
                     const PlainTensor& alibi_slopes,
                     const PlainTensor& score_aggregation_window,
                     const PlainTensor& sinks,
-                    const PlainTensor& qq_bias,
-                    const PlainTensor& qq_bias_begins,
                     const std::vector<PlainTensor>& sparse_attention_mask) {
         _workitems
             .reset(query, past_lens, subsequence_begins, block_indices, block_indices_begins, _helper._block_size);
@@ -2013,8 +1910,6 @@ struct MHA {
                             alibi_slopes,
                             score_aggregation_window,
                             sinks,
-                            qq_bias,
-                            qq_bias_begins,
                             sparse_attention_mask);
         } else {
             // TODO: support second token sparse attention execution
@@ -2030,9 +1925,7 @@ struct MHA {
                                   block_indices_begins,
                                   alibi_slopes,
                                   score_aggregation_window,
-                                  sinks,
-                                  qq_bias,
-                                  qq_bias_begins);
+                                  sinks);
         }
     }
 };
@@ -2156,9 +2049,6 @@ struct AttentionExecutor : public PagedAttentionExecutor {
                 token_type_ids = token_type_ids.reshape({total});
             }
         }
-
-        qq_bias.reset(inputs[ID_QQ_BIAS]);
-        qq_bias_begins.reset(inputs[ID_QQ_BIAS_BEGINS]);
 
         output_emb.reset(outputs[0]);
         if (outputs.size() >= 2) {
@@ -2526,8 +2416,6 @@ struct AttentionExecutor : public PagedAttentionExecutor {
                 alibi_slopes,
                 score_aggregation_window,
                 sinks,
-            qq_bias,
-            qq_bias_begins,
                 sparse_attention_mask);
     }
 };
