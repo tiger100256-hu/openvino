@@ -101,7 +101,6 @@
 #include "transformations/cpu_opset/common/op/causal_mask_preprocess.hpp"
 #include "transformations/cpu_opset/common/op/leaky_relu.hpp"
 #include "transformations/cpu_opset/common/op/ngram.hpp"
-#include "transformations/cpu_opset/common/op/pa_kv_reorder.hpp"
 #include "transformations/cpu_opset/common/op/power_static.hpp"
 #include "transformations/cpu_opset/common/op/read_value_with_subgraph.hpp"
 #include "transformations/cpu_opset/common/op/sdpa.hpp"
@@ -200,7 +199,6 @@ OPENVINO_CREATE_EXTENSIONS(std::vector<ov::Extension::Ptr>({
     std::make_shared<ov::OpExtension<ov::op::internal::FullyConnectedQuantized>>(),
     std::make_shared<ov::OpExtension<ov::op::PagedAttentionExtension>>(),
     std::make_shared<ov::OpExtension<ov::op::internal::GatedDeltaNet>>(),
-    std::make_shared<ov::OpExtension<ov::intel_cpu::PaKVReorderNode>>(),
     // clang-format off
     OP_EXTENSION_X64(std::make_shared<ov::OpExtension<ov::intel_cpu::InteractionNode>>())
     OP_EXTENSION_X64(std::make_shared<ov::OpExtension<ov::intel_cpu::LLMMLPNode>>())

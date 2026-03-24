@@ -4,13 +4,8 @@
 
 #include "openvino/runtime/make_tensor.hpp"
 
-#include <cstdlib>
 #include <memory>
 #include <mutex>
-
-#if defined(__linux__)
-#    include <execinfo.h>
-#endif
 
 #include "openvino/core/memory_util.hpp"
 #include "openvino/core/type/element_type_info.hpp"
@@ -60,13 +55,6 @@ public:
           m_strides_once{},
           m_ptr{ptr} {
         OPENVINO_ASSERT(shape_size(shape) == 0 || m_ptr != nullptr);
-                if (!m_element_type.is_static() && std::getenv("OV_DEBUG_DYN_TYPE") != nullptr) {
-#if defined(__linux__)
-                        void* bt[64] = {};
-                        const int bt_size = backtrace(bt, 64);
-                        backtrace_symbols_fd(bt, bt_size, 2);
-#endif
-                }
         OPENVINO_ASSERT(m_element_type.is_static());
     }
 

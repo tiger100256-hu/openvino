@@ -251,7 +251,6 @@ static const TypeToNameMap& get_type_to_name_tbl() {
         {"ScaledDotProductAttentionWithKVCache", Type::ScaledDotProductAttention},
         {"SDPAWithTransposeReshape", Type::ScaledDotProductAttention},
         {"PagedAttentionExtension", Type::PagedAttention},
-        {"PaKVReorder", Type::PaKVReorder},
         {"RoPE", Type::RoPE},
         {"GatherCompressed", Type::Gather},
         {"CausalMaskPreprocess", Type::CausalMaskPreprocess},
@@ -391,7 +390,6 @@ std::string NameFromType(const Type type) {
         CASE(Ngram);
         CASE(ScaledDotProductAttention);
         CASE(PagedAttention);
-        CASE(PaKVReorder);
         CASE(RoPE);
         CASE(CausalMaskPreprocess);
         CASE(LLMMLP);

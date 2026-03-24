@@ -2139,10 +2139,6 @@ void Graph::EnforceInferencePrecision() const {
                 if (node->getType() == Type::PagedAttention && any_of(inPort, 3U, 4U)) {
                     return true;
                 }
-                // kvcache of PaKVReorder should be kept in original precision as well.
-                if (node->getType() == Type::PaKVReorder && any_of(inPort, 0U, 1U)) {
-                    return true;
-                }
                 const auto& parent = node->getParentEdgeAt(inPort)->getParent();
                 /* Skip BF16 enforcement for nodes after Constant Inputs for maintaining precision for fusing.
                  * Element type conversion to bf16 is done automatically, if convolution follows up after Constant
