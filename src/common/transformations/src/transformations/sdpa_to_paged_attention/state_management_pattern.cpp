@@ -744,18 +744,13 @@ ov::pass::StateManagementPattern::StateManagementPattern(
             pa_arguments.insert(pa_arguments.begin() + 23, v0::Constant::create(element::i32, Shape{0}, {}));
             pa_arguments.insert(pa_arguments.begin() + 24, v0::Constant::create(element::i32, Shape{0}, {}));
         }
+
         if (*has_token_type_ids) {
             std::shared_ptr<ov::Node> token_type_ids = optional_model_wide_params.at("token_type_ids");
             if (token_type_ids->get_element_type() != element::i32) {
                 token_type_ids = std::make_shared<v0::Convert>(token_type_ids, element::i32);
             }
             pa_arguments.insert(pa_arguments.begin() + 25, token_type_ids);
-        } else {
-            pa_arguments.insert(pa_arguments.begin() + 25, v0::Constant::create(element::i32, Shape{0}, {}));
-        }
-
-        if (*is_gptoss_gemma3) {
-            pa_arguments.insert(pa_arguments.begin() + 25, handle_gemma3_token_type_ids(optional_model_wide_params));
         } else {
             pa_arguments.insert(pa_arguments.begin() + 25, v0::Constant::create(element::i32, Shape{0}, {}));
         }
