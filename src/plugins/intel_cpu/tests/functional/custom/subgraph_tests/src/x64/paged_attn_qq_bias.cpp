@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -29,6 +30,21 @@ namespace test {
 
 class PagedAttnQQBiasTest : virtual public ov::test::SubgraphBaseTest, public CPUTestsBase {
 public:
+    enum class InputPattern {
+        UniformScores,
+        NonUniformScores,
+    };
+
+    struct RunResult {
+        size_t seq_len;
+        size_t head_size;
+        size_t head_num;
+        ov::Tensor q;
+        ov::Tensor k;
+        ov::Tensor v;
+        ov::Tensor output;
+    };
+
     static std::shared_ptr<ov::op::v0::Parameter> make_param(const PartialShape& pshape,
                                                              element::Type element_type,
                                                              const std::string& name) {
@@ -131,8 +147,50 @@ public:
         return std::make_shared<ov::Model>(OutputVector{paged_attn}, params);
     }
 
-    ov::Tensor run_pa_with_qq_bias(const std::vector<uint8_t>& qq_bias_values, const std::vector<int32_t>& qq_bias_begins_values) {
-        constexpr size_t seq_len = 3;
+    static void fill_uniform_score_inputs(ov::Tensor& q_tensor, ov::Tensor& k_tensor, ov::Tensor& v_tensor, size_t seq_len) {
+        OPENVINO_ASSERT(seq_len == 3, "UniformScores pattern expects seq_len=3");
+        std::memset(q_tensor.data(), 0, q_tensor.get_byte_size());
+        std::memset(k_tensor.data(), 0, k_tensor.get_byte_size());
+
+        auto* v_data = v_tensor.data<float>();
+        const size_t hidden_dim = q_tensor.get_shape()[1];
+        const std::vector<float> token_values = {1.0f, 3.0f, 9.0f};
+        for (size_t token = 0; token < seq_len; ++token) {
+            std::fill_n(v_data + token * hidden_dim, hidden_dim, token_values[token]);
+        }
+    }
+
+    static void fill_non_uniform_inputs(ov::Tensor& q_tensor,
+                                        ov::Tensor& k_tensor,
+                                        ov::Tensor& v_tensor,
+                                        size_t seq_len,
+                                        size_t head_size,
+                                        size_t head_num) {
+        const size_t hidden_dim = head_size * head_num;
+        auto* q_data = q_tensor.data<float>();
+        auto* k_data = k_tensor.data<float>();
+        auto* v_data = v_tensor.data<float>();
+
+        for (size_t token = 0; token < seq_len; ++token) {
+            for (size_t head = 0; head < head_num; ++head) {
+                for (size_t dim = 0; dim < head_size; ++dim) {
+                    const size_t offset = token * hidden_dim + head * head_size + dim;
+                    q_data[offset] = 0.04f * static_cast<float>(token + 1) + 0.01f * static_cast<float>(head + 1) +
+                                     0.001f * static_cast<float>(dim + 1);
+                    k_data[offset] = 0.03f * static_cast<float>(seq_len - token) +
+                                     0.005f * static_cast<float>((dim % 5) + 1) -
+                                     0.002f * static_cast<float>(head + 1);
+                    v_data[offset] = 0.2f * static_cast<float>(token + 1) - 0.015f * static_cast<float>(head + 1) +
+                                     0.0005f * static_cast<float>(dim + 1);
+                }
+            }
+        }
+    }
+
+    RunResult run_pa_with_qq_bias(const std::vector<uint8_t>& qq_bias_values,
+                                  const std::vector<int32_t>& qq_bias_begins_values,
+                                  InputPattern input_pattern = InputPattern::UniformScores,
+                                  size_t seq_len = 3) {
         constexpr size_t head_size = 64;
         constexpr size_t head_num = 8;
         const size_t hidden_dim = head_size * head_num;
@@ -164,13 +222,13 @@ public:
         ov::Tensor q_tensor(ov::element::f32, {seq_len, hidden_dim});
         ov::Tensor k_tensor(ov::element::f32, {seq_len, hidden_dim});
         ov::Tensor v_tensor(ov::element::f32, {seq_len, hidden_dim});
-        std::memset(q_tensor.data(), 0, q_tensor.get_byte_size());
-        std::memset(k_tensor.data(), 0, k_tensor.get_byte_size());
-
-        auto* v_data = v_tensor.data<float>();
-        const std::vector<float> token_values = {1.0f, 3.0f, 9.0f};
-        for (size_t token = 0; token < seq_len; ++token) {
-            std::fill_n(v_data + token * hidden_dim, hidden_dim, token_values[token]);
+        switch (input_pattern) {
+        case InputPattern::UniformScores:
+            fill_uniform_score_inputs(q_tensor, k_tensor, v_tensor, seq_len);
+            break;
+        case InputPattern::NonUniformScores:
+            fill_non_uniform_inputs(q_tensor, k_tensor, v_tensor, seq_len, head_size, head_num);
+            break;
         }
 
         ov::Tensor past_lens(ov::element::i32, {1});
@@ -223,7 +281,95 @@ public:
         auto output = infer_request.get_output_tensor(0);
         ov::Tensor output_copy{output.get_element_type(), output.get_shape()};
         output.copy_to(output_copy);
-        return output_copy;
+        return {seq_len, head_size, head_num, q_tensor, k_tensor, v_tensor, output_copy};
+    }
+
+    ov::Tensor make_cpp_reference_output(const RunResult& run_result,
+                                         const std::vector<uint8_t>& qq_bias_values,
+                                         const std::vector<int32_t>& qq_bias_begins_values) const {
+        OPENVINO_ASSERT(qq_bias_begins_values.size() == 2, "This reference helper expects one subsequence");
+        const size_t hidden_dim = run_result.head_size * run_result.head_num;
+        const auto* q_data = run_result.q.data<const float>();
+        const auto* k_data = run_result.k.data<const float>();
+        const auto* v_data = run_result.v.data<const float>();
+        const float scale = 1.0f / std::sqrt(static_cast<float>(run_result.head_size));
+        const float neg_inf = -std::numeric_limits<float>::infinity();
+        const auto spec_num =
+            static_cast<size_t>(qq_bias_begins_values[1] - qq_bias_begins_values[0]);
+
+        OPENVINO_ASSERT(spec_num == run_result.seq_len, "qq_bias spec size must match seq_len in this test");
+        OPENVINO_ASSERT(qq_bias_values.empty() || qq_bias_values.size() == spec_num * spec_num,
+                        "qq_bias must store a dense square mask per sequence in this test");
+
+        ov::Tensor expected(ov::element::f32, {run_result.seq_len, hidden_dim});
+        auto* expected_data = expected.data<float>();
+        std::vector<float> scores(run_result.seq_len, neg_inf);
+        std::vector<float> weights(run_result.seq_len, 0.0f);
+
+        for (size_t q_idx = 0; q_idx < run_result.seq_len; ++q_idx) {
+            const size_t ncausal = q_idx + 1;
+            for (size_t head_idx = 0; head_idx < run_result.head_num; ++head_idx) {
+                const size_t head_offset = head_idx * run_result.head_size;
+                const size_t qq_row_offset = q_idx * spec_num;
+                float max_score = neg_inf;
+                bool has_valid_score = false;
+
+                for (size_t kv_idx = 0; kv_idx < run_result.seq_len; ++kv_idx) {
+                    scores[kv_idx] = neg_inf;
+                    weights[kv_idx] = 0.0f;
+                }
+
+                for (size_t kv_idx = 0; kv_idx < ncausal; ++kv_idx) {
+                    if (!qq_bias_values.empty() && qq_bias_values[qq_row_offset + kv_idx] == 0) {
+                        continue;
+                    }
+
+                    float dot = 0.0f;
+                    for (size_t dim = 0; dim < run_result.head_size; ++dim) {
+                        const size_t q_offset = q_idx * hidden_dim + head_offset + dim;
+                        const size_t kv_offset = kv_idx * hidden_dim + head_offset + dim;
+                        dot += q_data[q_offset] * k_data[kv_offset];
+                    }
+
+                    scores[kv_idx] = dot * scale;
+                    max_score = std::max(max_score, scores[kv_idx]);
+                    has_valid_score = true;
+                }
+
+                if (!has_valid_score) {
+                    std::fill_n(expected_data + q_idx * hidden_dim + head_offset, run_result.head_size, 0.0f);
+                    continue;
+                }
+
+                float exp_sum = 0.0f;
+                for (size_t kv_idx = 0; kv_idx < ncausal; ++kv_idx) {
+                    if (!std::isfinite(scores[kv_idx])) {
+                        continue;
+                    }
+
+                    weights[kv_idx] = std::exp(scores[kv_idx] - max_score);
+                    exp_sum += weights[kv_idx];
+                }
+
+                OPENVINO_ASSERT(exp_sum > 0.0f, "Expected at least one unmasked kv token");
+
+                for (size_t dim = 0; dim < run_result.head_size; ++dim) {
+                    float acc = 0.0f;
+                    for (size_t kv_idx = 0; kv_idx < ncausal; ++kv_idx) {
+                        if (weights[kv_idx] == 0.0f) {
+                            continue;
+                        }
+
+                        const size_t kv_offset = kv_idx * hidden_dim + head_offset + dim;
+                        acc += weights[kv_idx] * v_data[kv_offset];
+                    }
+
+                    expected_data[q_idx * hidden_dim + head_offset + dim] = acc / exp_sum;
+                }
+            }
+        }
+
+        return expected;
     }
 
     ov::Tensor make_expected_output(const std::vector<float>& expected_token_values) const {
@@ -240,27 +386,47 @@ public:
 };
 
 TEST_F(PagedAttnQQBiasTest, MasksCurrentQueriesWithExplicitReference) {
-    const auto actual = run_pa_with_qq_bias({
-                                               1, 0, 0,
-                                               1, 0, 0,
-                                               0, 1, 1,
-                                           },
-                                           {0, 3});
+    const std::vector<uint8_t> qq_bias = {
+        1, 0, 0,
+        1, 0, 0,
+        0, 1, 1,
+    };
+    const std::vector<int32_t> qq_bias_begins = {0, 3};
+    const auto run_result = run_pa_with_qq_bias(qq_bias, qq_bias_begins);
+    const auto cpp_reference = make_cpp_reference_output(run_result, qq_bias, qq_bias_begins);
 
     const auto expected = make_expected_output({1.0f, 1.0f, 6.0f});
-    ov::test::utils::compare(expected, actual, 1e-4f, 1e-4f);
+    ov::test::utils::compare(expected, cpp_reference, 1e-4f, 1e-4f);
+    ov::test::utils::compare(expected, run_result.output, 1e-4f, 1e-4f);
 }
 
 TEST_F(PagedAttnQQBiasTest, AllOnesPreserveCausalReference) {
-    const auto actual = run_pa_with_qq_bias({
-                                               1, 1, 1,
-                                               1, 1, 1,
-                                               1, 1, 1,
-                                           },
-                                           {0, 3});
+    const std::vector<uint8_t> qq_bias = {
+        1, 1, 1,
+        1, 1, 1,
+        1, 1, 1,
+    };
+    const std::vector<int32_t> qq_bias_begins = {0, 3};
+    const auto run_result = run_pa_with_qq_bias(qq_bias, qq_bias_begins);
+    const auto cpp_reference = make_cpp_reference_output(run_result, qq_bias, qq_bias_begins);
 
     const auto expected = make_expected_output({1.0f, 2.0f, 13.0f / 3.0f});
-    ov::test::utils::compare(expected, actual, 1e-4f, 1e-4f);
+    ov::test::utils::compare(expected, cpp_reference, 1e-4f, 1e-4f);
+    ov::test::utils::compare(expected, run_result.output, 1e-4f, 1e-4f);
+}
+
+TEST_F(PagedAttnQQBiasTest, NonUniformInputsMatchCppReference) {
+    const std::vector<uint8_t> qq_bias = {
+        1, 0, 0, 0,
+        1, 1, 0, 0,
+        1, 0, 1, 0,
+        1, 1, 0, 1,
+    };
+    const std::vector<int32_t> qq_bias_begins = {0, 4};
+    const auto run_result = run_pa_with_qq_bias(qq_bias, qq_bias_begins, InputPattern::NonUniformScores, 4);
+    const auto cpp_reference = make_cpp_reference_output(run_result, qq_bias, qq_bias_begins);
+
+    ov::test::utils::compare(cpp_reference, run_result.output, 1e-4f, 1e-4f);
 }
 
 }  // namespace test
