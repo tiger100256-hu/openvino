@@ -657,3 +657,4 @@ TEST(mark_shape_of_subgraphs, gemm_not_marked) {
     ASSERT_FALSE(check_subgraph(prog->get_node("shape_of"), prog->get_node("gemm")));
     ASSERT_FALSE(prog->get_node("relu").is_in_shape_of_subgraph());
 }
+

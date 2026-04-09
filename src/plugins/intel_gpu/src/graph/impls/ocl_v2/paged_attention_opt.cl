@@ -410,28 +410,11 @@ KERNEL(pa_sdpa_opt)(
 #endif
 
 #if SLIDING_WINDOW_SIZE != 0
-            if (token_idx >= seq_len || (seq_len > SLIDING_WINDOW_SIZE && token_idx < (seq_len - SLIDING_WINDOW_SIZE))) {
-                qk_acc = SOFTMAX_ACCUMULATOR_VAL_MIN;
-            } else
+            if (token_idx >= seq_len || (seq_len > SLIDING_WINDOW_SIZE && token_idx < (seq_len - SLIDING_WINDOW_SIZE)))
 #else
-            if (token_idx >= seq_len) {
+            if (token_idx >= seq_len)
+#endif
                 qk_acc = SOFTMAX_ACCUMULATOR_VAL_MIN;
-            }
-#endif
-
-#if HAS_QQ_BIAS && MULTI_TOKENS_PROCESSING
-            // token_idx < seq_len, speculative tree mask
-            if (spec_num > 0 && token_idx >= past_len && token_idx < seq_len) {
-                const uint spec_offset = token_idx - past_len;
-                if (spec_offset < spec_num) {
-                    const uint qq_bias_base = cumulated_spec_num * spec_num + (seq_idx - subsequence_begin) * spec_num;
-                    const uint qq_bias_offset = qq_bias_base + spec_offset;
-                    if (qq_bias[qq_bias_offset] == 0) {
-                        qk_acc = SOFTMAX_ACCUMULATOR_VAL_MIN;
-                    }
-                }
-            }
-#endif
 
 #if HAS_QQ_BIAS && MULTI_TOKENS_PROCESSING
             // token_idx < seq_len, speculative tree mask
